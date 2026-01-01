@@ -45,3 +45,8 @@ buildServer.json
 
 # Claude settings (local)
 .claude/
+
+# Environment files
+.env
+.env.local
+.env.*
