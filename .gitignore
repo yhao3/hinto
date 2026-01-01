@@ -50,3 +50,6 @@ buildServer.json
 .env
 .env.local
 .env.*
+
+# Build tools
+create-dmg/

@@ -66,7 +66,19 @@ release: clean
 		rm $(APP_NAME).zip
 	@echo "Creating DMG..."
 	@rm -f $(DMG_PATH)
-	@hdiutil create -volname "$(APP_NAME)" -srcfolder $(APP_PATH) -ov -format UDZO $(DMG_PATH)
+	@if [ ! -d create-dmg ]; then git clone https://github.com/create-dmg/create-dmg.git; fi
+	@./create-dmg/create-dmg \
+		--volname "$(APP_NAME)" \
+		--background "Resources/dmg-background.tiff" \
+		--window-pos 200 120 \
+		--window-size 500 320 \
+		--icon-size 80 \
+		--icon "$(APP_NAME).app" 125 175 \
+		--app-drop-link 375 175 \
+		--hide-extension "$(APP_NAME).app" \
+		--no-internet-enable \
+		$(DMG_PATH) \
+		$(APP_PATH)
 	@echo "Done! Created $(DMG_PATH)"
 
 help:
