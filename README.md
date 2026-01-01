@@ -28,8 +28,8 @@
 
 ## Features
 
-- **Click Mode**: Press `Cmd+Shift+Space` to show labels on clickable elements
-- **Scroll Mode**: Press `Tab` to switch to scroll mode with vim-like keys (H/J/K/L)
+- **Click Mode**: Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> to show labels on clickable elements
+- **Scroll Mode**: Press <kbd>Tab</kbd> to switch to scroll mode with vim-like keys (<kbd>H</kbd>/<kbd>J</kbd>/<kbd>K</kbd>/<kbd>L</kbd>)
 - **Configurable Labels**: Choose label size (S/M/L) and theme (Dark/Light/Blue)
 - **Auto-click**: Automatically click when an exact label match is typed
 
@@ -53,24 +53,24 @@ make run
 
 ## Usage
 
-1. Press `Cmd+Shift+Space` to activate
+1. Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Space</kbd> to activate
 2. Type the label of the element you want to click
-3. Press `Enter` to confirm, or wait for auto-click
-4. Press `Shift+Enter` for right-click
-5. Press `Tab` to switch to scroll mode
-6. Press `Escape` to cancel
+3. Press <kbd>Enter</kbd> to confirm, or wait for auto-click
+4. Press <kbd>Shift</kbd>+<kbd>Enter</kbd> for right-click
+5. Press <kbd>Tab</kbd> to switch to scroll mode
+6. Press <kbd>Escape</kbd> to cancel
 
 ### Scroll Mode Keys
 
 | Key | Action |
 |-----|--------|
-| `J` | Scroll down |
-| `K` | Scroll up |
-| `H` | Scroll left |
-| `L` | Scroll right |
-| `D` | Half page down |
-| `U` | Half page up |
-| `Shift+J/K/H/L` | Fast scroll |
+| <kbd>J</kbd> | Scroll down |
+| <kbd>K</kbd> | Scroll up |
+| <kbd>H</kbd> | Scroll left |
+| <kbd>L</kbd> | Scroll right |
+| <kbd>D</kbd> | Half page down |
+| <kbd>U</kbd> | Half page up |
+| <kbd>Shift</kbd>+<kbd>J</kbd>/<kbd>K</kbd>/<kbd>H</kbd>/<kbd>L</kbd> | Fast scroll |
 
 ## Configuration
 
