@@ -1,3 +1,4 @@
+import ServiceManagement
 import SwiftUI
 
 // MARK: - Color Theme
@@ -186,9 +187,26 @@ struct GeneralSettingsView: View {
     @AppStorage("label-characters") private var labelCharacters = "ASDFGHJKLQWERTYUIOPZXCVBNM"
     @AppStorage("is-auto-click-enabled") private var autoClickEnabled = false
     @State private var accessibilityEnabled = AXEnablerService.shared.isAccessibilityEnabled
+    @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
 
     var body: some View {
         VStack(spacing: 0) {
+            SettingsRow("Launch at Login", colors: colors) {
+                Toggle("Start Hinto when you log in", isOn: $launchAtLogin)
+                    .toggleStyle(.checkbox)
+                    .onChange(of: launchAtLogin) { newValue in
+                        do {
+                            if newValue {
+                                try SMAppService.mainApp.register()
+                            } else {
+                                try SMAppService.mainApp.unregister()
+                            }
+                        } catch {
+                            launchAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    }
+            }
+
             SettingsRow("Auto Click", colors: colors) {
                 Toggle("Click when label matches exactly", isOn: $autoClickEnabled)
                     .toggleStyle(.checkbox)
