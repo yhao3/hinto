@@ -12,31 +12,36 @@ final class HitTestScanner: ElementScanner {
         var results: [UIElement] = []
         var scannedPositions: Set<String> = []
         var processedTabGroups: Set<String> = []
+        var includedBounds: [String: Int] = [:]  // Shared across all scans for jump optimization
 
         // Scan tabs (iTerm2: y=25-50, IntelliJ file tabs: y=58-72)
         results.append(contentsOf: scanTabs(
             windowFrame: windowFrame,
             scannedPositions: &scannedPositions,
-            processedTabGroups: &processedTabGroups
+            processedTabGroups: &processedTabGroups,
+            includedBounds: &includedBounds
         ))
 
         // Scan bottom toolbar (IntelliJ status bar)
         results.append(contentsOf: scanBottomToolbar(
             windowFrame: windowFrame,
-            scannedPositions: &scannedPositions
+            scannedPositions: &scannedPositions,
+            includedBounds: &includedBounds
         ))
 
         // Scan tool window panels (Terminal/Run/Debug session tabs)
         results.append(contentsOf: scanToolWindows(
             windowFrame: windowFrame,
             scannedPositions: &scannedPositions,
-            processedTabGroups: &processedTabGroups
+            processedTabGroups: &processedTabGroups,
+            includedBounds: &includedBounds
         ))
 
         // Scan left sidebar
         results.append(contentsOf: scanLeftSidebar(
             windowFrame: windowFrame,
-            scannedPositions: &scannedPositions
+            scannedPositions: &scannedPositions,
+            includedBounds: &includedBounds
         ))
 
         return results
@@ -47,7 +52,8 @@ final class HitTestScanner: ElementScanner {
     private func scanTabs(
         windowFrame: CGRect,
         scannedPositions: inout Set<String>,
-        processedTabGroups: inout Set<String>
+        processedTabGroups: inout Set<String>,
+        includedBounds: inout [String: Int]
     ) -> [UIElement] {
         var results: [UIElement] = []
         let tabYPositions = [28, 35, 42, 50, 58, 65, 72]
@@ -59,7 +65,8 @@ final class HitTestScanner: ElementScanner {
                 y: y,
                 stepX: 15,
                 scannedPositions: &scannedPositions,
-                processedTabGroups: &processedTabGroups
+                processedTabGroups: &processedTabGroups,
+                includedBounds: &includedBounds
             )
             results.append(contentsOf: found)
         }
@@ -69,7 +76,8 @@ final class HitTestScanner: ElementScanner {
 
     private func scanBottomToolbar(
         windowFrame: CGRect,
-        scannedPositions: inout Set<String>
+        scannedPositions: inout Set<String>,
+        includedBounds: inout [String: Int]
     ) -> [UIElement] {
         var results: [UIElement] = []
         let windowBottom = Int(windowFrame.origin.y + windowFrame.height)
@@ -83,7 +91,8 @@ final class HitTestScanner: ElementScanner {
                 y: y,
                 stepX: 20,
                 scannedPositions: &scannedPositions,
-                processedTabGroups: &processedTabGroups
+                processedTabGroups: &processedTabGroups,
+                includedBounds: &includedBounds
             )
             results.append(contentsOf: found)
         }
@@ -94,7 +103,8 @@ final class HitTestScanner: ElementScanner {
     private func scanToolWindows(
         windowFrame: CGRect,
         scannedPositions: inout Set<String>,
-        processedTabGroups: inout Set<String>
+        processedTabGroups: inout Set<String>,
+        includedBounds: inout [String: Int]
     ) -> [UIElement] {
         var results: [UIElement] = []
         let windowTop = Int(windowFrame.origin.y)
@@ -117,7 +127,8 @@ final class HitTestScanner: ElementScanner {
                 y: y,
                 stepX: 30,
                 scannedPositions: &scannedPositions,
-                processedTabGroups: &processedTabGroups
+                processedTabGroups: &processedTabGroups,
+                includedBounds: &includedBounds
             )
             results.append(contentsOf: found)
         }
@@ -127,7 +138,8 @@ final class HitTestScanner: ElementScanner {
 
     private func scanLeftSidebar(
         windowFrame: CGRect,
-        scannedPositions: inout Set<String>
+        scannedPositions: inout Set<String>,
+        includedBounds: inout [String: Int]
     ) -> [UIElement] {
         var results: [UIElement] = []
         let windowBottom = Int(windowFrame.origin.y + windowFrame.height)
@@ -142,7 +154,8 @@ final class HitTestScanner: ElementScanner {
                 startY: Int(windowFrame.origin.y) + 100,
                 endY: windowBottom - 50,
                 stepY: 25,
-                scannedPositions: &scannedPositions
+                scannedPositions: &scannedPositions,
+                includedBounds: &includedBounds
             )
             results.append(contentsOf: found)
         }
@@ -158,7 +171,8 @@ final class HitTestScanner: ElementScanner {
         y: Int,
         stepX: Int,
         scannedPositions: inout Set<String>,
-        processedTabGroups: inout Set<String>
+        processedTabGroups: inout Set<String>,
+        includedBounds: inout [String: Int]
     ) -> [UIElement] {
         var results: [UIElement] = []
         var x = startX
@@ -177,15 +191,22 @@ final class HitTestScanner: ElementScanner {
             }
 
             let posKey = "\(Int(pos.x)),\(Int(pos.y))"
+            let role = element.role ?? "Unknown"
+
+            // Leaf elements we can safely jump past (no children to miss)
+            let leafRoles: Set<String> = ["AXButton", "AXRadioButton", "AXTab", "AXCheckBox", "AXLink", "AXStaticText"]
+            let isLeaf = leafRoles.contains(role)
+
             if scannedPositions.contains(posKey) {
-                // Already scanned this element, jump past it
-                let jumpDistance = max(stepX, Int(pos.x + size.width) - x + 1)
-                x += jumpDistance
+                // Already scanned - jump only if it was a leaf element
+                if isLeaf, let rightEdge = includedBounds[posKey] {
+                    x = max(x + stepX, rightEdge)
+                } else {
+                    x += stepX
+                }
                 continue
             }
             scannedPositions.insert(posKey)
-
-            let role = element.role ?? "Unknown"
 
             // Skip small buttons (likely close buttons within tabs)
             if role == "AXButton" && (size.width < 30 || size.height < 30) {
@@ -198,6 +219,12 @@ final class HitTestScanner: ElementScanner {
                 let uiElement = UIElement(axElement: element, customFrame: frame)
                 results.append(uiElement)
 
+                // Track bounds for jump optimization (leaf elements only)
+                let rightEdge = Int(pos.x + size.width) + 1
+                if isLeaf {
+                    includedBounds[posKey] = rightEdge
+                }
+
                 // Find sibling tabs if this is a tab element
                 if role == "AXRadioButton" || role == "AXTab" {
                     let siblings = findSiblingTabs(
@@ -205,14 +232,30 @@ final class HitTestScanner: ElementScanner {
                         processedGroups: &processedTabGroups,
                         scannedPositions: &scannedPositions
                     )
+                    for sibling in siblings {
+                        let sPos = sibling.frame.origin
+                        let sSize = sibling.frame.size
+                        let sPosKey = "\(Int(sPos.x)),\(Int(sPos.y))"
+                        includedBounds[sPosKey] = Int(sPos.x + sSize.width) + 1
+                    }
                     results.append(contentsOf: siblings)
                 }
 
-                // Jump past this element (jump to element's right edge + 1)
-                let jumpTo = Int(pos.x + size.width) + 1
-                x = max(x + stepX, jumpTo)
+                // Jump past leaf elements only
+                if isLeaf {
+                    x = max(x + stepX, rightEdge)
+                } else {
+                    x += stepX
+                }
             } else {
-                x += stepX
+                // Not included - jump past leaf elements, step for containers
+                if isLeaf {
+                    let rightEdge = Int(pos.x + size.width) + 1
+                    includedBounds[posKey] = rightEdge
+                    x = max(x + stepX, rightEdge)
+                } else {
+                    x += stepX
+                }
             }
         }
 
@@ -224,7 +267,8 @@ final class HitTestScanner: ElementScanner {
         startY: Int,
         endY: Int,
         stepY: Int,
-        scannedPositions: inout Set<String>
+        scannedPositions: inout Set<String>,
+        includedBounds: inout [String: Int]
     ) -> [UIElement] {
         var results: [UIElement] = []
         var y = startY
@@ -244,9 +288,12 @@ final class HitTestScanner: ElementScanner {
 
             let posKey = "\(Int(pos.x)),\(Int(pos.y))"
             if scannedPositions.contains(posKey) {
-                // Already scanned this element, jump past it
-                let jumpDistance = max(stepY, Int(pos.y + size.height) - y + 1)
-                y += jumpDistance
+                // Already scanned - jump only if it was an included element
+                if let bottomEdge = includedBounds[posKey] {
+                    y = max(y + stepY, bottomEdge)
+                } else {
+                    y += stepY
+                }
                 continue
             }
             scannedPositions.insert(posKey)
@@ -259,9 +306,12 @@ final class HitTestScanner: ElementScanner {
                 let uiElement = UIElement(axElement: element, customFrame: frame)
                 results.append(uiElement)
 
-                // Jump past this element (jump to element's bottom edge + 1)
-                let jumpTo = Int(pos.y + size.height) + 1
-                y = max(y + stepY, jumpTo)
+                // Track bounds for jump optimization
+                let bottomEdge = Int(pos.y + size.height) + 1
+                includedBounds[posKey] = bottomEdge
+
+                // Jump past this element
+                y = max(y + stepY, bottomEdge)
             } else {
                 y += stepY
             }
