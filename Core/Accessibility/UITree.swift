@@ -45,8 +45,13 @@ final class UITree {
             "AXComboBox",
         ]
 
-        // Must be enabled
-        guard element.isEnabled else { return false }
+        // Skip isEnabled check for tab-like elements (iTerm2 tabs report enabled=false)
+        let isTabLikeElement = element.role == "AXRadioButton" && element.frame.origin.y < 60
+
+        // Must be enabled (skip for tab-like elements)
+        if !isTabLikeElement {
+            guard element.isEnabled else { return false }
+        }
 
         // Must have a valid frame
         guard element.frame.width > 0 && element.frame.height > 0 else { return false }
@@ -81,10 +86,16 @@ final class UITree {
         // Must be on screen
         guard isOnScreen(element.frame) else { return false }
 
-        // Allow AXStaticText in tab bar area (y=55-90) as tab labels in IntelliJ/Java apps
+        // Allow AXStaticText as tab labels in IntelliJ/Java apps
         if element.role == "AXStaticText" {
             let y = element.frame.origin.y
-            return y >= 55 && y <= 90 && element.frame.width >= 50
+            let width = element.frame.width
+            // File tabs at top of window (y=55-90)
+            let isFileTab = y >= 55 && y <= 90 && width >= 50
+            // Tool window session tabs (Terminal, Run, Debug) - anywhere in window
+            // Identified by: moderate width (30-200), reasonable height, not at very top
+            let isSessionTab = y > 100 && width >= 30 && width <= 200
+            return isFileTab || isSessionTab
         }
 
         return clickableRoles.contains(element.role)

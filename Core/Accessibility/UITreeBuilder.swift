@@ -74,7 +74,10 @@ final class UITreeBuilder {
 
                     // Scan key y positions where tabs are found
                     // IntelliJ tabs: y=58-65 for tab labels, y=64 for tab names
-                    let tabYPositions = [58, 65, 72]
+                    // Scan y positions for tabs:
+                    // - iTerm2 tabs: y=25-50 (in title bar area)
+                    // - IntelliJ file tabs: y=58-72
+                    let tabYPositions = [28, 35, 42, 50, 58, 65, 72]
                     for y in tabYPositions {
                         let found = scanAreaWithHitTest(
                             startX: Int(windowFrame.origin.x) + 30,
@@ -82,6 +85,10 @@ final class UITreeBuilder {
                             y: y,
                             stepX: 8
                         )
+                        // Debug: log what we find at tab positions
+                        for elem in found {
+                            log("UITreeBuilder: Tab scan y=\(y) found \(elem.role) at (\(Int(elem.frame.origin.x)),\(Int(elem.frame.origin.y))) size=\(Int(elem.frame.width))x\(Int(elem.frame.height))")
+                        }
                         additionalElements.append(contentsOf: found)
                     }
 
@@ -101,6 +108,42 @@ final class UITreeBuilder {
                             stepX: 20
                         )
                         additionalElements.append(contentsOf: found)
+                    }
+
+                    // Scan tool window panel headers (Terminal/Run/Debug session tabs)
+                    // These panels are typically in the bottom half of the window
+                    // Scan from middle of window to above status bar
+                    let windowTop = Int(windowFrame.origin.y)
+                    let windowMiddle = (windowTop + windowBottom) / 2
+                    log("UITreeBuilder: Scanning tool window area from y=\(windowMiddle) to y=\(windowBottom - 50)")
+                    // Scan every 30 pixels from middle to near bottom
+                    var toolWindowY = windowMiddle
+                    while toolWindowY < windowBottom - 50 {
+                        let found = scanAreaWithHitTest(
+                            startX: Int(windowFrame.origin.x) + 50,
+                            endX: Int(windowFrame.origin.x + windowFrame.width) - 50,
+                            y: toolWindowY,
+                            stepX: 15
+                        )
+                        // Debug: Log what the raw hit-test returns at this position
+                        if found.isEmpty && toolWindowY % 90 == 0 {
+                            // Sample a few positions to see raw hit results
+                            let systemWide = AXUIElementCreateSystemWide()
+                            var elementRef: AXUIElement?
+                            let testX = Int(windowFrame.origin.x) + 400
+                            let error = AXUIElementCopyElementAtPosition(systemWide, Float(testX), Float(toolWindowY), &elementRef)
+                            if error == .success, let elem = elementRef {
+                                let role = elem.role ?? "Unknown"
+                                let pos = elem.position ?? .zero
+                                let size = elem.size ?? .zero
+                                log("UITreeBuilder: Raw hit at (\(testX),\(toolWindowY)) -> \(role) at (\(Int(pos.x)),\(Int(pos.y))) size=\(Int(size.width))x\(Int(size.height))")
+                            }
+                        }
+                        for elem in found {
+                            log("UITreeBuilder: Tool window scan y=\(toolWindowY) found \(elem.role) at (\(Int(elem.frame.origin.x)),\(Int(elem.frame.origin.y))) size=\(Int(elem.frame.width))x\(Int(elem.frame.height))")
+                        }
+                        additionalElements.append(contentsOf: found)
+                        toolWindowY += 30
                     }
 
                     // Scan left sidebar toolbar (vertical icons)
@@ -326,7 +369,10 @@ final class UITreeBuilder {
                 // Also include larger buttons (not close buttons)
                 let isLargeButton = role == "AXButton" && size.width >= 30 && size.height >= 30
                 // Include AXStaticText in tab bar area (y=55-90) as they represent tab labels in IntelliJ
-                let isTabLabel = role == "AXStaticText" && pos.y >= 55 && pos.y <= 90 && size.width >= 50
+                let isFileTabLabel = role == "AXStaticText" && pos.y >= 55 && pos.y <= 90 && size.width >= 50
+                // Include AXStaticText anywhere for Terminal/Run session tabs (moderate width)
+                let isToolWindowTab = role == "AXStaticText" && pos.y > 100 && size.width >= 30 && size.width <= 200
+                let isTabLabel = isFileTabLabel || isToolWindowTab
 
                 if (clickableRoles.contains(role) || isLargeButton || isTabLabel) && size.width > 10 && size
                     .height > 10
