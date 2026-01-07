@@ -161,22 +161,35 @@ final class HitTestScanner: ElementScanner {
         processedTabGroups: inout Set<String>
     ) -> [UIElement] {
         var results: [UIElement] = []
+        var x = startX
 
-        for x in stride(from: startX, through: endX, by: stepX) {
+        while x <= endX {
             var elementRef: AXUIElement?
             let error = AXUIElementCopyElementAtPosition(systemWide, Float(x), Float(y), &elementRef)
 
-            guard error == .success, let element = elementRef else { continue }
-            guard let pos = element.position, let size = element.size else { continue }
+            guard error == .success, let element = elementRef else {
+                x += stepX
+                continue
+            }
+            guard let pos = element.position, let size = element.size else {
+                x += stepX
+                continue
+            }
 
             let posKey = "\(Int(pos.x)),\(Int(pos.y))"
-            if scannedPositions.contains(posKey) { continue }
+            if scannedPositions.contains(posKey) {
+                // Already scanned this element, jump past it
+                let jumpDistance = max(stepX, Int(pos.x + size.width) - x + 1)
+                x += jumpDistance
+                continue
+            }
             scannedPositions.insert(posKey)
 
             let role = element.role ?? "Unknown"
 
             // Skip small buttons (likely close buttons within tabs)
             if role == "AXButton" && (size.width < 30 || size.height < 30) {
+                x += stepX
                 continue
             }
 
@@ -194,6 +207,12 @@ final class HitTestScanner: ElementScanner {
                     )
                     results.append(contentsOf: siblings)
                 }
+
+                // Jump past this element (jump to element's right edge + 1)
+                let jumpTo = Int(pos.x + size.width) + 1
+                x = max(x + stepX, jumpTo)
+            } else {
+                x += stepX
             }
         }
 
@@ -208,16 +227,28 @@ final class HitTestScanner: ElementScanner {
         scannedPositions: inout Set<String>
     ) -> [UIElement] {
         var results: [UIElement] = []
+        var y = startY
 
-        for y in stride(from: startY, through: endY, by: stepY) {
+        while y <= endY {
             var elementRef: AXUIElement?
             let error = AXUIElementCopyElementAtPosition(systemWide, Float(x), Float(y), &elementRef)
 
-            guard error == .success, let element = elementRef else { continue }
-            guard let pos = element.position, let size = element.size else { continue }
+            guard error == .success, let element = elementRef else {
+                y += stepY
+                continue
+            }
+            guard let pos = element.position, let size = element.size else {
+                y += stepY
+                continue
+            }
 
             let posKey = "\(Int(pos.x)),\(Int(pos.y))"
-            if scannedPositions.contains(posKey) { continue }
+            if scannedPositions.contains(posKey) {
+                // Already scanned this element, jump past it
+                let jumpDistance = max(stepY, Int(pos.y + size.height) - y + 1)
+                y += jumpDistance
+                continue
+            }
             scannedPositions.insert(posKey)
 
             let role = element.role ?? "Unknown"
@@ -227,6 +258,12 @@ final class HitTestScanner: ElementScanner {
                 let frame = CGRect(origin: pos, size: size)
                 let uiElement = UIElement(axElement: element, customFrame: frame)
                 results.append(uiElement)
+
+                // Jump past this element (jump to element's bottom edge + 1)
+                let jumpTo = Int(pos.y + size.height) + 1
+                y = max(y + stepY, jumpTo)
+            } else {
+                y += stepY
             }
         }
 
