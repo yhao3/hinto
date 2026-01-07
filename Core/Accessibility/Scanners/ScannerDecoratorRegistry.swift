@@ -8,6 +8,7 @@ enum ScannerDecoratorRegistry {
     /// To add a new decorator, just append to this array
     private static let decorators: [(key: String, factory: DecoratorFactory)] = [
         ("debug-timing", { TimedScanner($0, name: $1) }),
+        ("debug-perf", { PerfScanner($0, name: $1) }),
     ]
 
     /// Wrap a scanner with all enabled decorators
