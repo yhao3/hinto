@@ -72,8 +72,6 @@ final class UITreeBuilder {
                 if let windowFrame = focusedWindow.frame {
                     var additionalElements: [UIElement] = []
 
-                    // Scan key y positions where tabs are found
-                    // IntelliJ tabs: y=58-65 for tab labels, y=64 for tab names
                     // Scan y positions for tabs:
                     // - iTerm2 tabs: y=25-50 (in title bar area)
                     // - IntelliJ file tabs: y=58-72
@@ -83,12 +81,8 @@ final class UITreeBuilder {
                             startX: Int(windowFrame.origin.x) + 30,
                             endX: Int(windowFrame.origin.x + windowFrame.width) - 30,
                             y: y,
-                            stepX: 8
+                            stepX: 15
                         )
-                        // Debug: log what we find at tab positions
-                        for elem in found {
-                            log("UITreeBuilder: Tab scan y=\(y) found \(elem.role) at (\(Int(elem.frame.origin.x)),\(Int(elem.frame.origin.y))) size=\(Int(elem.frame.width))x\(Int(elem.frame.height))")
-                        }
                         additionalElements.append(contentsOf: found)
                     }
 
@@ -111,39 +105,28 @@ final class UITreeBuilder {
                     }
 
                     // Scan tool window panel headers (Terminal/Run/Debug session tabs)
-                    // These panels are typically in the bottom half of the window
-                    // Scan from middle of window to above status bar
+                    // Tool window tabs are typically at panel headers, not scattered
+                    // Use strategic positions instead of scanning every 30px
                     let windowTop = Int(windowFrame.origin.y)
-                    let windowMiddle = (windowTop + windowBottom) / 2
-                    log("UITreeBuilder: Scanning tool window area from y=\(windowMiddle) to y=\(windowBottom - 50)")
-                    // Scan every 30 pixels from middle to near bottom
-                    var toolWindowY = windowMiddle
-                    while toolWindowY < windowBottom - 50 {
+                    let windowHeight = windowBottom - windowTop
+
+                    // Tool windows are typically in bottom 60% of window
+                    // Scan at strategic heights: 40%, 50%, 60%, 70%, 80% of window height
+                    let toolWindowYPositions = [
+                        windowTop + (windowHeight * 40 / 100),
+                        windowTop + (windowHeight * 50 / 100),
+                        windowTop + (windowHeight * 60 / 100),
+                        windowTop + (windowHeight * 70 / 100),
+                        windowTop + (windowHeight * 80 / 100),
+                    ]
+                    for toolWindowY in toolWindowYPositions {
                         let found = scanAreaWithHitTest(
                             startX: Int(windowFrame.origin.x) + 50,
                             endX: Int(windowFrame.origin.x + windowFrame.width) - 50,
                             y: toolWindowY,
-                            stepX: 15
+                            stepX: 30
                         )
-                        // Debug: Log what the raw hit-test returns at this position
-                        if found.isEmpty && toolWindowY % 90 == 0 {
-                            // Sample a few positions to see raw hit results
-                            let systemWide = AXUIElementCreateSystemWide()
-                            var elementRef: AXUIElement?
-                            let testX = Int(windowFrame.origin.x) + 400
-                            let error = AXUIElementCopyElementAtPosition(systemWide, Float(testX), Float(toolWindowY), &elementRef)
-                            if error == .success, let elem = elementRef {
-                                let role = elem.role ?? "Unknown"
-                                let pos = elem.position ?? .zero
-                                let size = elem.size ?? .zero
-                                log("UITreeBuilder: Raw hit at (\(testX),\(toolWindowY)) -> \(role) at (\(Int(pos.x)),\(Int(pos.y))) size=\(Int(size.width))x\(Int(size.height))")
-                            }
-                        }
-                        for elem in found {
-                            log("UITreeBuilder: Tool window scan y=\(toolWindowY) found \(elem.role) at (\(Int(elem.frame.origin.x)),\(Int(elem.frame.origin.y))) size=\(Int(elem.frame.width))x\(Int(elem.frame.height))")
-                        }
                         additionalElements.append(contentsOf: found)
-                        toolWindowY += 30
                     }
 
                     // Scan left sidebar toolbar (vertical icons)
