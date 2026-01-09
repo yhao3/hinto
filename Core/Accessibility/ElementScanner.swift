@@ -18,6 +18,6 @@ struct ScanContext {
     init(appElement: AXUIElement, focusedWindow: AXUIElement? = nil) {
         self.appElement = appElement
         self.focusedWindow = focusedWindow
-        self.windowFrame = focusedWindow?.frame
+        windowFrame = focusedWindow?.frame
     }
 }

@@ -408,8 +408,8 @@ final class UITreeTests: XCTestCase {
     func test_isClickable_intelliJ_toolbarButtons_shouldBeClickable() {
         // given - IntelliJ toolbar buttons at y=38
         let toolbarButtons: [(x: Int, y: Int, w: Int, h: Int)] = [
-            (973, 38, 183, 32),   // Wide toolbar button
-            (1156, 38, 34, 32),   // Standard toolbar button
+            (973, 38, 183, 32), // Wide toolbar button
+            (1156, 38, 34, 32), // Standard toolbar button
             (1190, 38, 34, 32),
             (1224, 38, 34, 32),
         ]
@@ -442,8 +442,8 @@ final class UITreeTests: XCTestCase {
     func test_isClickable_intelliJ_sessionTabs_shouldBeClickable() {
         // given - IntelliJ Terminal session tabs at y=560
         let sessionTabs: [(x: Int, y: Int, w: Int, h: Int)] = [
-            (33, 560, 84, 31),    // "Local" tab
-            (117, 560, 134, 31),  // "Local (2)" tab
+            (33, 560, 84, 31), // "Local" tab
+            (117, 560, 134, 31), // "Local (2)" tab
             (251, 560, 78, 31),
             (329, 560, 106, 31),
             (435, 560, 106, 31),
@@ -520,8 +520,8 @@ final class UITreeTests: XCTestCase {
     func test_isClickable_intelliJ_smallActionButtons_shouldNotBeClickable() {
         // given - Small action buttons (width < 10 or filtered by other criteria)
         let smallButtons: [(x: Int, y: Int, w: Int, h: Int)] = [
-            (1436, 104, 21, 22),  // Small action button
-            (1457, 104, 20, 22),  // Small action button
+            (1436, 104, 21, 22), // Small action button
+            (1457, 104, 20, 22), // Small action button
         ]
 
         for btn in smallButtons {
