@@ -59,12 +59,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func setupEventTap() {
         eventTapManager = EventTapManager()
+        eventTapManager?.hotKey = Preferences.shared.hotKey
         eventTapManager?.onHotKeyPressed = { [weak self] in
             log("Hinto: Hotkey pressed!")
             self?.modeController?.toggle()
         }
         eventTapManager?.start()
         log("Hinto: EventTap running = \(eventTapManager?.isRunning ?? false)")
+
+        // Listen for hotkey changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hotkeyDidChange),
+            name: Preferences.hotkeyDidChangeNotification,
+            object: nil
+        )
+
+        // Listen for recording start/end to bypass hotkey detection
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hotkeyRecordingDidStart),
+            name: Preferences.hotkeyRecordingDidStartNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(hotkeyRecordingDidEnd),
+            name: Preferences.hotkeyRecordingDidEndNotification,
+            object: nil
+        )
+    }
+
+    @objc private func hotkeyDidChange() {
+        log("Hinto: Hotkey changed, updating...")
+        eventTapManager?.hotKey = Preferences.shared.hotKey
+        log("Hinto: New hotkey applied")
+    }
+
+    @objc private func hotkeyRecordingDidStart() {
+        log("Hinto: Hotkey recording started, bypassing hotkey detection")
+        eventTapManager?.bypassHotkey = true
+    }
+
+    @objc private func hotkeyRecordingDidEnd() {
+        log("Hinto: Hotkey recording ended, resuming hotkey detection")
+        eventTapManager?.bypassHotkey = false
     }
 
     private func setupModeController() {

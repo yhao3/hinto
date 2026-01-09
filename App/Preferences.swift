@@ -16,11 +16,18 @@ final class Preferences {
         static let customLabelBackground = "custom-label-background"
         static let customLabelText = "custom-label-text"
         static let customLabelBorder = "custom-label-border"
-        static let activationShortcut = "activation-shortcut"
         static let showMenuBarIcon = "show-menubar-icon"
         static let autoClickEnabled = "is-auto-click-enabled"
         static let hideLabelsWhenNothingSearched = "hide-labels-when-nothing-is-searched"
+        static let hotkeyKeyCode = "hotkey-keycode"
+        static let hotkeyModifiers = "hotkey-modifiers"
     }
+
+    // MARK: - Notifications
+
+    static let hotkeyDidChangeNotification = Notification.Name("PreferencesHotkeyDidChange")
+    static let hotkeyRecordingDidStartNotification = Notification.Name("PreferencesHotkeyRecordingDidStart")
+    static let hotkeyRecordingDidEndNotification = Notification.Name("PreferencesHotkeyRecordingDidEnd")
 
     // MARK: - Properties
 
@@ -48,6 +55,56 @@ final class Preferences {
     var hideLabelsWhenNothingSearched: Bool {
         get { defaults.bool(forKey: Keys.hideLabelsWhenNothingSearched) }
         set { defaults.set(newValue, forKey: Keys.hideLabelsWhenNothingSearched) }
+    }
+
+    // MARK: - Hotkey
+
+    /// Whether a custom hotkey has been set
+    var hasCustomHotkey: Bool {
+        defaults.object(forKey: Keys.hotkeyKeyCode) != nil
+    }
+
+    /// The hotkey key code (default: Space = 49)
+    var hotkeyKeyCode: UInt16 {
+        get {
+            if defaults.object(forKey: Keys.hotkeyKeyCode) != nil {
+                return UInt16(defaults.integer(forKey: Keys.hotkeyKeyCode))
+            }
+            return 49 // kVK_Space
+        }
+        set {
+            defaults.set(Int(newValue), forKey: Keys.hotkeyKeyCode)
+            NotificationCenter.default.post(name: Self.hotkeyDidChangeNotification, object: nil)
+        }
+    }
+
+    /// The hotkey modifiers (default: Cmd+Shift)
+    var hotkeyModifiers: UInt {
+        get {
+            if defaults.object(forKey: Keys.hotkeyModifiers) != nil {
+                return UInt(defaults.integer(forKey: Keys.hotkeyModifiers))
+            }
+            return 3 // command + shift
+        }
+        set {
+            defaults.set(Int(newValue), forKey: Keys.hotkeyModifiers)
+            NotificationCenter.default.post(name: Self.hotkeyDidChangeNotification, object: nil)
+        }
+    }
+
+    /// Get the current hotkey configuration
+    var hotKey: HotKey {
+        HotKey(
+            keyCode: hotkeyKeyCode,
+            modifiers: HotKey.ModifierFlags(rawValue: hotkeyModifiers)
+        )
+    }
+
+    /// Set both keyCode and modifiers at once (posts single notification)
+    func setHotkey(keyCode: UInt16, modifiers: UInt) {
+        defaults.set(Int(keyCode), forKey: Keys.hotkeyKeyCode)
+        defaults.set(Int(modifiers), forKey: Keys.hotkeyModifiers)
+        NotificationCenter.default.post(name: Self.hotkeyDidChangeNotification, object: nil)
     }
 
     /// Label theme: "dark", "light", "blue", "custom"
