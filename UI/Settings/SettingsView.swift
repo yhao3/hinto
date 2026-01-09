@@ -269,7 +269,7 @@ struct ShortcutsSettingsView: View {
     var body: some View {
         VStack(spacing: 0) {
             SettingsRow("Activate Hinto", colors: colors) {
-                HotkeyBadge(keys: ["Cmd", "Shift", "Space"], colors: colors)
+                HotkeyRecorderView(colors: colors)
             }
 
             SettingsRow("Left Click", colors: colors) {
@@ -385,6 +385,193 @@ struct KeyGuideItem: View {
         .frame(width: 32, height: 36)
         .background(colors.cardBackground)
         .cornerRadius(6)
+    }
+}
+
+// MARK: - Hotkey Recorder
+
+struct HotkeyRecorderView: View {
+    let colors: SettingsColors
+    @State private var isRecording = false
+    @State private var currentKeyCode: UInt16 = Preferences.shared.hotkeyKeyCode
+    @State private var currentModifiers: UInt = Preferences.shared.hotkeyModifiers
+    @State private var eventMonitor: Any?
+
+    var body: some View {
+        Button(action: {
+            startRecording()
+        }) {
+            HStack(spacing: 4) {
+                if isRecording {
+                    Text("Press keys...")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(colors.secondaryText)
+                } else {
+                    Text(hotkeyDisplayString)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(colors.text)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+            .background(isRecording ? Color.accentColor.opacity(0.3) : colors.cardBackground)
+            .cornerRadius(6)
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(isRecording ? Color.accentColor : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+        .onReceive(NotificationCenter.default.publisher(for: Preferences.hotkeyDidChangeNotification)) { _ in
+            currentKeyCode = Preferences.shared.hotkeyKeyCode
+            currentModifiers = Preferences.shared.hotkeyModifiers
+        }
+        .onDisappear {
+            stopRecording()
+        }
+    }
+
+    private func startRecording() {
+        guard !isRecording else { return }
+        isRecording = true
+
+        // Notify to bypass global hotkey detection
+        NotificationCenter.default.post(name: Preferences.hotkeyRecordingDidStartNotification, object: nil)
+
+        // Add local event monitor
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            handleKeyEvent(event)
+            return nil // Consume the event
+        }
+    }
+
+    private func stopRecording() {
+        guard isRecording else { return }
+        isRecording = false
+
+        // Remove event monitor
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+            eventMonitor = nil
+        }
+
+        // Notify to resume global hotkey detection
+        NotificationCenter.default.post(name: Preferences.hotkeyRecordingDidEndNotification, object: nil)
+    }
+
+    private func handleKeyEvent(_ event: NSEvent) {
+        let newKeyCode = event.keyCode
+
+        // Escape cancels recording
+        if newKeyCode == 53 {
+            stopRecording()
+            return
+        }
+
+        // Build modifier flags
+        var newModifiers: UInt = 0
+        if event.modifierFlags.contains(.command) { newModifiers |= 1 }
+        if event.modifierFlags.contains(.shift) { newModifiers |= 2 }
+        if event.modifierFlags.contains(.control) { newModifiers |= 4 }
+        if event.modifierFlags.contains(.option) { newModifiers |= 8 }
+
+        // Require at least one modifier
+        guard newModifiers > 0 else { return }
+
+        // Update state and save
+        currentKeyCode = newKeyCode
+        currentModifiers = newModifiers
+        Preferences.shared.setHotkey(keyCode: newKeyCode, modifiers: newModifiers)
+
+        stopRecording()
+    }
+
+    private var hotkeyDisplayString: String {
+        var parts: [String] = []
+
+        let modFlags = HotKey.ModifierFlags(rawValue: currentModifiers)
+        if modFlags.contains(.control) { parts.append("⌃") }
+        if modFlags.contains(.option) { parts.append("⌥") }
+        if modFlags.contains(.shift) { parts.append("⇧") }
+        if modFlags.contains(.command) { parts.append("⌘") }
+
+        parts.append(keyCodeToString(currentKeyCode))
+
+        return parts.joined()
+    }
+
+    private func keyCodeToString(_ keyCode: UInt16) -> String {
+        switch Int(keyCode) {
+        case 49: return "Space"
+        case 36: return "↩"
+        case 53: return "⎋"
+        case 48: return "⇥"
+        case 51: return "⌫"
+        case 0: return "A"
+        case 1: return "S"
+        case 2: return "D"
+        case 3: return "F"
+        case 4: return "H"
+        case 5: return "G"
+        case 6: return "Z"
+        case 7: return "X"
+        case 8: return "C"
+        case 9: return "V"
+        case 11: return "B"
+        case 12: return "Q"
+        case 13: return "W"
+        case 14: return "E"
+        case 15: return "R"
+        case 16: return "Y"
+        case 17: return "T"
+        case 18: return "1"
+        case 19: return "2"
+        case 20: return "3"
+        case 21: return "4"
+        case 22: return "6"
+        case 23: return "5"
+        case 24: return "="
+        case 25: return "9"
+        case 26: return "7"
+        case 27: return "-"
+        case 28: return "8"
+        case 29: return "0"
+        case 30: return "]"
+        case 31: return "O"
+        case 32: return "U"
+        case 33: return "["
+        case 34: return "I"
+        case 35: return "P"
+        case 37: return "L"
+        case 38: return "J"
+        case 39: return "'"
+        case 40: return "K"
+        case 41: return ";"
+        case 42: return "\\"
+        case 43: return ","
+        case 44: return "/"
+        case 45: return "N"
+        case 46: return "M"
+        case 47: return "."
+        case 50: return "`"
+        case 122: return "F1"
+        case 120: return "F2"
+        case 99: return "F3"
+        case 118: return "F4"
+        case 96: return "F5"
+        case 97: return "F6"
+        case 98: return "F7"
+        case 100: return "F8"
+        case 101: return "F9"
+        case 109: return "F10"
+        case 103: return "F11"
+        case 111: return "F12"
+        case 123: return "←"
+        case 124: return "→"
+        case 125: return "↓"
+        case 126: return "↑"
+        default: return "?"
+        }
     }
 }
 

@@ -21,6 +21,9 @@ final class EventTapManager {
     /// Whether the event tap is currently active
     private(set) var isRunning = false
 
+    /// When true, hotkey detection is bypassed (used during hotkey recording)
+    var bypassHotkey = false
+
     deinit {
         stop()
     }
@@ -84,8 +87,8 @@ final class EventTapManager {
 
     /// Handle keyboard event
     fileprivate func handleEvent(_ event: CGEvent, type: CGEventType) -> CGEvent? {
-        // Check for hotkey
-        if type == .keyDown {
+        // Check for hotkey (skip if in bypass mode for recording)
+        if type == .keyDown && !bypassHotkey {
             let keyCode = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
             let flags = event.flags
 
