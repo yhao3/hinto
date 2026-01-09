@@ -14,9 +14,12 @@ final class ChangelogParser {
     private init() {}
 
     /// Get the changelog entry for the current app version
-    func currentVersionEntry() -> ChangelogEntry? {
-        let version = Preferences.shared.currentVersion
-        return entry(for: version)
+    /// - Parameter version: Optional version override. If nil, uses Bundle.main version.
+    func currentVersionEntry(for version: String? = nil) -> ChangelogEntry? {
+        let v = version
+            ?? Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? "0.0.0"
+        return entry(for: v)
     }
 
     /// Get the changelog entry for a specific version
