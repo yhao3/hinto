@@ -3,7 +3,6 @@ import XCTest
 /// Tests for Sparkle auto-update configuration
 /// Verifies Info.plist has correct Sparkle keys for secure auto-updates
 final class SparkleConfigTests: XCTestCase {
-
     private var infoPlist: [String: Any]!
 
     override func setUp() {
@@ -51,11 +50,10 @@ final class SparkleConfigTests: XCTestCase {
 // MARK: - Given
 
 extension SparkleConfigTests {
-
     private func loadInfoPlist() {
         let plistPath = URL(fileURLWithPath: #file)
-            .deletingLastPathComponent()  // Tests/
-            .deletingLastPathComponent()  // Hinto/
+            .deletingLastPathComponent() // Tests/
+            .deletingLastPathComponent() // Hinto/
             .appendingPathComponent("Resources/Info.plist")
 
         guard let data = try? Data(contentsOf: plistPath),
@@ -75,7 +73,6 @@ extension SparkleConfigTests {
 // MARK: - Then (Feed URL)
 
 extension SparkleConfigTests {
-
     private func thenFeedURLExists() {
         let feedURL = infoPlist["SUFeedURL"] as? String
         XCTAssertNotNil(feedURL, "SUFeedURL must be set in Info.plist")
@@ -109,7 +106,6 @@ extension SparkleConfigTests {
 // MARK: - Then (Public Key)
 
 extension SparkleConfigTests {
-
     private func thenPublicKeyExists() {
         let publicKey = infoPlist["SUPublicEDKey"] as? String
         XCTAssertNotNil(publicKey, "SUPublicEDKey must be set for EdDSA signature verification")
@@ -138,7 +134,6 @@ extension SparkleConfigTests {
 // MARK: - Then (Auto-Check)
 
 extension SparkleConfigTests {
-
     private func thenAutoCheckIsEnabled() {
         let autoCheck = infoPlist["SUEnableAutomaticChecks"] as? Bool
         XCTAssertEqual(autoCheck, true, "Automatic update checks should be enabled")
@@ -156,6 +151,6 @@ extension SparkleConfigTests {
         }
         // Should be at least 1 hour and at most 1 week
         XCTAssertGreaterThanOrEqual(interval, 3600, "Check interval should be at least 1 hour")
-        XCTAssertLessThanOrEqual(interval, 604800, "Check interval should be at most 1 week")
+        XCTAssertLessThanOrEqual(interval, 604_800, "Check interval should be at most 1 week")
     }
 }

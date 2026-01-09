@@ -4,7 +4,7 @@ import Foundation
 struct ChangelogEntry {
     let version: String
     let date: String?
-    let content: String  // Raw markdown content for this version
+    let content: String // Raw markdown content for this version
 }
 
 /// Parses bundled CHANGELOG.md file
@@ -65,7 +65,9 @@ final class ChangelogParser {
         let contentRange = Range(match.range(at: 2), in: content)
 
         let date = dateRange.map { String(content[$0]) }
-        let entryContent = contentRange.map { String(content[$0]).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+        let entryContent = contentRange.map { String(content[
+            $0
+        ]).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
 
         return ChangelogEntry(version: version, date: date, content: entryContent)
     }
@@ -88,7 +90,8 @@ final class ChangelogParser {
             let contentRange = Range(match.range(at: 3), in: content)
 
             let date = dateRange.map { String(content[$0]) }
-            let entryContent = contentRange.map { String(content[$0]).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
+            let entryContent = contentRange
+                .map { String(content[$0]).trimmingCharacters(in: .whitespacesAndNewlines) } ?? ""
 
             return ChangelogEntry(version: version, date: date, content: entryContent)
         }
