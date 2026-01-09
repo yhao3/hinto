@@ -1,5 +1,6 @@
 import Carbon
 import Cocoa
+import Sparkle
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -7,6 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var modeController: ModeController?
     private var eventTapManager: EventTapManager?
     private var settingsWindow: NSWindow?
+    private var whatsNewWindowController: WhatsNewWindowController?
+
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     func applicationDidFinishLaunching(_: Notification) {
         log("Hinto: Starting up...")
@@ -15,7 +23,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         checkAccessibilityPermission()
         setupEventTap()
         setupModeController()
+        checkForWhatsNewPopup()
         log("Hinto: Ready! Press Cmd+Shift+Space to activate")
+    }
+
+    // MARK: - Sparkle
+
+    var updater: SPUUpdater {
+        updaterController.updater
+    }
+
+    // MARK: - What's New
+
+    private func checkForWhatsNewPopup() {
+        let prefs = Preferences.shared
+
+        if prefs.isFirstLaunch {
+            // First launch: record version, don't show popup
+            log("Hinto: First launch, recording version \(prefs.currentVersion)")
+            prefs.lastSeenVersion = prefs.currentVersion
+        } else if prefs.isFirstLaunchAfterUpdate {
+            // Updated: show What's New popup
+            log("Hinto: Updated from \(prefs.lastSeenVersion) to \(prefs.currentVersion), showing What's New")
+            showWhatsNewWindow()
+            // Note: lastSeenVersion is updated when user dismisses the popup
+        } else {
+            log("Hinto: Version unchanged (\(prefs.currentVersion))")
+        }
+    }
+
+    private func showWhatsNewWindow() {
+        guard let entry = ChangelogParser.shared.currentVersionEntry() else {
+            log("Hinto: No changelog entry found for version \(Preferences.shared.currentVersion)")
+            return
+        }
+
+        NSApp.setActivationPolicy(.regular)
+        whatsNewWindowController = WhatsNewWindowController(entry: entry)
+        whatsNewWindowController?.showWindow(nil)
     }
 
     func applicationWillTerminate(_: Notification) {

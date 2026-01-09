@@ -21,6 +21,7 @@ final class Preferences {
         static let hideLabelsWhenNothingSearched = "hide-labels-when-nothing-is-searched"
         static let hotkeyKeyCode = "hotkey-keycode"
         static let hotkeyModifiers = "hotkey-modifiers"
+        static let lastSeenVersion = "last-seen-version"
     }
 
     // MARK: - Notifications
@@ -111,6 +112,29 @@ final class Preferences {
     var labelTheme: String {
         get { defaults.string(forKey: Keys.labelTheme) ?? "dark" }
         set { defaults.set(newValue, forKey: Keys.labelTheme) }
+    }
+
+    // MARK: - Version Tracking (What's New)
+
+    /// Last version the user has seen (for What's New detection)
+    var lastSeenVersion: String {
+        get { defaults.string(forKey: Keys.lastSeenVersion) ?? "" }
+        set { defaults.set(newValue, forKey: Keys.lastSeenVersion) }
+    }
+
+    /// Current app version from bundle
+    var currentVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
+
+    /// True if this is the very first launch (no lastSeenVersion recorded)
+    var isFirstLaunch: Bool {
+        lastSeenVersion.isEmpty
+    }
+
+    /// True if app was updated since last launch
+    var isFirstLaunchAfterUpdate: Bool {
+        !lastSeenVersion.isEmpty && lastSeenVersion != currentVersion
     }
 
     // MARK: - Custom Label Colors

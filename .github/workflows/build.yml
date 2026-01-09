@@ -1,0 +1,94 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+
+env:
+  APP_NAME: Hinto
+  SCHEME: Hinto
+  BUILD_PATH: build/Build/Products/Release
+  APPLE_ID: ${{ secrets.APPLE_ID }}
+  APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+  APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+
+jobs:
+  build:
+    runs-on: macos-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install certificate
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=password
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$APPLE_CERTIFICATE_P12" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -scheme $SCHEME \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
+            build
+
+      - name: Notarize
+        run: |
+          cd "$BUILD_PATH"
+          ditto -c -k --keepParent "$APP_NAME.app" "$APP_NAME.zip"
+
+          xcrun notarytool submit "$APP_NAME.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$APP_NAME.app"
+
+      - name: Create DMG
+        run: |
+          git clone https://github.com/create-dmg/create-dmg.git
+
+          ./create-dmg/create-dmg \
+            --volname "$APP_NAME" \
+            --window-pos 200 120 \
+            --window-size 500 320 \
+            --icon-size 80 \
+            --icon "$APP_NAME.app" 125 175 \
+            --hide-extension "$APP_NAME.app" \
+            --app-drop-link 375 175 \
+            --no-internet-enable \
+            "$APP_NAME.dmg" \
+            "$BUILD_PATH/$APP_NAME.app"
+
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APP_NAME }}.dmg
+          path: ${{ env.APP_NAME }}.dmg
+
+      - name: Cleanup
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+          rm -f $RUNNER_TEMP/certificate.p12

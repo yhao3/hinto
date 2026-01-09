@@ -34,5 +34,15 @@
     <string></string>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+
+    <!-- Sparkle Auto-Update Configuration -->
+    <key>SUFeedURL</key>
+    <string>https://yhao3.github.io/hinto/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>HejEwZ2TcxMeniqJnQF0i+atjkftXgmXCVSJQwwr6K8=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
 </dict>
 </plist>
