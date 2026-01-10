@@ -1,7 +1,7 @@
 import ServiceManagement
 import SwiftUI
 
-// MARK: - Color Theme
+// MARK: - Color Theme (Glassmorphism)
 
 struct SettingsColors {
     let background: Material
@@ -11,18 +11,20 @@ struct SettingsColors {
 
     static func forScheme(_ scheme: ColorScheme) -> SettingsColors {
         if scheme == .dark {
+            // Dark mode: translucent white overlays
             return SettingsColors(
                 background: .thickMaterial,
-                cardBackground: Color(red: 0x4A / 255.0, green: 0x49 / 255.0, blue: 0x49 / 255.0).opacity(0.5),
+                cardBackground: Color.white.opacity(0.08),
                 text: .white,
-                secondaryText: Color(white: 0.5)
+                secondaryText: Color(white: 0.6) // Better contrast
             )
         } else {
+            // Light mode: frosted glass with visible depth
             return SettingsColors(
                 background: .thickMaterial,
-                cardBackground: Color(red: 0xD0 / 255.0, green: 0xCE / 255.0, blue: 0xCD / 255.0).opacity(0.5),
-                text: .black,
-                secondaryText: Color(white: 0.4)
+                cardBackground: Color.white.opacity(0.7), // More visible glass
+                text: Color(white: 0.1),
+                secondaryText: Color(white: 0.35) // Better contrast (4.5:1)
             )
         }
     }
@@ -53,14 +55,29 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             // Custom toolbar
             SettingsToolbar(selectedTab: $selectedTab, colors: colors)
-                .padding(.top, 8)
+                .padding(.top, Design.Spacing.sm)
 
             // Content
             TabContent(selectedTab: selectedTab, colors: colors)
         }
         .frame(width: 560, height: 420)
         .background(colors.background)
-        .preferredColorScheme(effectiveColorScheme)
+        .onAppear {
+            updateWindowAppearance(appAppearance)
+        }
+        .onChange(of: appAppearance) { newValue in
+            updateWindowAppearance(newValue)
+        }
+    }
+
+    private func updateWindowAppearance(_ value: String) {
+        guard let window = NSApp.keyWindow else { return }
+        let appearance: NSAppearance? = switch value {
+        case "light": NSAppearance(named: .aqua)
+        case "dark": NSAppearance(named: .darkAqua)
+        default: nil
+        }
+        window.appearance = appearance
     }
 }
 
@@ -78,7 +95,7 @@ struct SettingsToolbar: View {
     ]
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Design.Spacing.xs) {
             ForEach(0 ..< tabs.count, id: \.self) { index in
                 ToolbarTab(
                     icon: tabs[index].icon,
@@ -87,14 +104,14 @@ struct SettingsToolbar: View {
                     colors: colors
                 )
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.15)) {
+                    withAnimation(Design.Animation.quick) {
                         selectedTab = index
                     }
                 }
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, Design.Spacing.lg)
+        .padding(.vertical, Design.Spacing.md)
     }
 }
 
@@ -103,33 +120,88 @@ struct ToolbarTab: View {
     let title: String
     let isSelected: Bool
     let colors: SettingsColors
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Design.Spacing.xs) {
             Image(systemName: icon)
-                .font(.system(size: 20))
+                .font(.system(size: Design.IconSize.md))
                 .frame(width: 28, height: 28)
 
             Text(title)
-                .font(.system(size: 11))
+                .font(Design.Font.caption)
         }
-        .foregroundColor(isSelected ? .white : colors.secondaryText)
+        .foregroundColor(isSelected ? .white : (isHovering ? colors.text : colors.secondaryText))
         .frame(width: 80, height: 56)
         .background(
-            Group {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(.regularMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(Color.accentColor.opacity(0.6))
-                        )
-                } else {
-                    Color.clear
+            ZStack {
+                // Glassmorphism: frosted glass background
+                RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                    .fill(glassBackground)
+
+                // Light reflection (top highlight) for glass effect - not for selected
+                if !isSelected && isHovering {
+                    RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                        .fill(Design.Glass.reflectionGradient(colorScheme))
                 }
             }
         )
+        // Glassmorphism: subtle border
+        .overlay(
+            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                .stroke(borderColor, lineWidth: 1)
+        )
+        // Z-depth shadow
+        .shadow(
+            color: shadowColor,
+            radius: isSelected ? 6 : (isHovering ? 4 : 0),
+            x: 0,
+            y: isSelected ? 3 : 2
+        )
         .contentShape(Rectangle())
+        .onHover { hovering in
+            isHovering = hovering
+            if hovering {
+                NSCursor.pointingHand.push()
+            } else {
+                NSCursor.pop()
+            }
+        }
+        .animation(Design.Animation.quick, value: isHovering)
+        .animation(Design.Animation.quick, value: isSelected)
+    }
+
+    private var glassBackground: Color {
+        if isSelected {
+            return Design.Colors.accent
+        }
+        if isHovering {
+            return Design.Glass.background(colorScheme, isHovering: true)
+        }
+        return .clear
+    }
+
+    private var borderColor: Color {
+        if isSelected {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderActive)
+                : Design.Colors.accent.opacity(Design.Glass.Light.borderActive)
+        }
+        if isHovering {
+            return Design.Glass.border(colorScheme, isHovering: true)
+        }
+        return .clear
+    }
+
+    private var shadowColor: Color {
+        if isSelected {
+            return Design.Colors.accent.opacity(0.35)
+        }
+        if isHovering {
+            return Design.Glass.shadowColor(colorScheme)
+        }
+        return .clear
     }
 }
 
@@ -175,8 +247,8 @@ struct SettingsRow<Content: View>: View {
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 24)
+        .padding(.vertical, Design.Spacing.sm)
+        .padding(.horizontal, Design.Spacing.xxl)
     }
 }
 
@@ -184,6 +256,7 @@ struct SettingsRow<Content: View>: View {
 
 struct GeneralSettingsView: View {
     let colors: SettingsColors
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("label-characters") private var labelCharacters = "ASDFGHJKLQWERTYUIOPZXCVBNM"
     @AppStorage("is-auto-click-enabled") private var autoClickEnabled = false
     @State private var accessibilityEnabled = AXEnablerService.shared.isAccessibilityEnabled
@@ -193,7 +266,7 @@ struct GeneralSettingsView: View {
         VStack(spacing: 0) {
             SettingsRow("Launch at Login", colors: colors) {
                 Toggle("Start Hinto when you log in", isOn: $launchAtLogin)
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.hintoCheckbox)
                     .onChange(of: launchAtLogin) { newValue in
                         do {
                             if newValue {
@@ -209,39 +282,90 @@ struct GeneralSettingsView: View {
 
             SettingsRow("Auto Click", colors: colors) {
                 Toggle("Click when label matches exactly", isOn: $autoClickEnabled)
-                    .toggleStyle(.checkbox)
+                    .toggleStyle(.hintoCheckbox)
             }
 
             SettingsRow("Label Characters", colors: colors) {
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: Design.Spacing.xs) {
                     Text(labelCharacters)
                         .font(.system(.body, design: .monospaced))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(colors.cardBackground)
-                        .cornerRadius(6)
+                        .foregroundColor(colors.text)
+                        .padding(.horizontal, Design.Spacing.md)
+                        .padding(.vertical, Design.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                                .fill(Design.Glass.background(colorScheme))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                                .stroke(Design.Glass.border(colorScheme), lineWidth: 1)
+                        )
                     Text("Characters used for hint labels")
-                        .font(.caption)
+                        .font(Design.Font.caption)
                         .foregroundColor(colors.secondaryText)
                 }
             }
 
             SettingsRow("Accessibility", colors: colors) {
-                HStack(spacing: 12) {
+                HStack(spacing: Design.Spacing.md) {
                     if accessibilityEnabled {
-                        HStack(spacing: 6) {
+                        HStack(spacing: Design.Spacing.sm) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                                .font(.system(size: 16))
+                                .foregroundColor(colorScheme == .dark ? .green : Color(red: 0.2, green: 0.6, blue: 0.3))
                             Text("Enabled")
-                                .foregroundColor(colors.text)
+                                .font(Design.Font.body)
+                                .foregroundColor(colorScheme == .dark
+                                    ? .green
+                                    : Color(
+                                        red: 0.15,
+                                        green: 0.5,
+                                        blue: 0.25
+                                    ))
                         }
+                        .padding(.horizontal, Design.Spacing.md)
+                        .padding(.vertical, Design.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .fill(colorScheme == .dark
+                                    ? Color.green.opacity(0.15)
+                                    : Color(red: 0.85, green: 0.95, blue: 0.88))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .stroke(
+                                    colorScheme == .dark
+                                        ? Color.green.opacity(0.3)
+                                        : Color(red: 0.3, green: 0.7, blue: 0.4).opacity(0.5),
+                                    lineWidth: 1
+                                )
+                        )
                     } else {
-                        HStack(spacing: 6) {
+                        HStack(spacing: Design.Spacing.sm) {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.red)
+                                .font(.system(size: 16))
+                                .foregroundColor(colorScheme == .dark ? .red : Color(red: 0.8, green: 0.2, blue: 0.2))
                             Text("Not Enabled")
-                                .foregroundColor(colors.text)
+                                .font(Design.Font.body)
+                                .foregroundColor(colorScheme == .dark ? .red : Color(red: 0.7, green: 0.15, blue: 0.15))
                         }
+                        .padding(.horizontal, Design.Spacing.md)
+                        .padding(.vertical, Design.Spacing.sm)
+                        .background(
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .fill(colorScheme == .dark
+                                    ? Color.red.opacity(0.15)
+                                    : Color(red: 1.0, green: 0.9, blue: 0.9))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .stroke(
+                                    colorScheme == .dark
+                                        ? Color.red.opacity(0.3)
+                                        : Color.red.opacity(0.3),
+                                    lineWidth: 1
+                                )
+                        )
 
                         Button("Grant Access") {
                             AXEnablerService.shared.promptForAccessibility()
@@ -249,15 +373,14 @@ struct GeneralSettingsView: View {
                                 accessibilityEnabled = AXEnablerService.shared.isAccessibilityEnabled
                             }
                         }
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
+                        .buttonStyle(.hintoCard)
                     }
                 }
             }
 
             Spacer()
         }
-        .padding(.top, 16)
+        .padding(.top, Design.Spacing.lg)
     }
 }
 
@@ -278,7 +401,7 @@ struct ShortcutsSettingsView: View {
             }
 
             SettingsRow("Right Click", colors: colors) {
-                HStack(spacing: 4) {
+                HStack(spacing: Design.Spacing.xs) {
                     KeyBadge("Shift", colors: colors)
                     Text("+")
                         .foregroundColor(colors.secondaryText)
@@ -288,7 +411,7 @@ struct ShortcutsSettingsView: View {
             }
 
             SettingsRow("Switch Mode", colors: colors) {
-                HStack(spacing: 8) {
+                HStack(spacing: Design.Spacing.sm) {
                     KeyBadge("Tab", colors: colors)
                     Text("Toggle click/scroll mode")
                         .foregroundColor(colors.secondaryText)
@@ -301,7 +424,7 @@ struct ShortcutsSettingsView: View {
 
             Spacer()
         }
-        .padding(.top, 16)
+        .padding(.top, Design.Spacing.lg)
     }
 }
 
@@ -310,17 +433,17 @@ struct HotkeyBadge: View {
     let colors: SettingsColors
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: Design.Spacing.xs) {
             ForEach(keys, id: \.self) { key in
                 Text(keySymbol(key))
-                    .font(.system(size: 13, weight: .medium))
+                    .font(Design.Font.body)
                     .foregroundColor(colors.text)
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Design.Spacing.lg)
+        .padding(.vertical, Design.Spacing.sm)
         .background(colors.cardBackground)
-        .cornerRadius(6)
+        .cornerRadius(Design.CornerRadius.sm)
     }
 
     func keySymbol(_ key: String) -> String {
@@ -336,6 +459,7 @@ struct HotkeyBadge: View {
 struct KeyBadge: View {
     let key: String
     let colors: SettingsColors
+    @Environment(\.colorScheme) private var colorScheme
 
     init(_ key: String, colors: SettingsColors) {
         self.key = key
@@ -346,10 +470,30 @@ struct KeyBadge: View {
         Text(key)
             .font(.system(size: 11, weight: .medium, design: .rounded))
             .foregroundColor(colors.text)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 3)
-            .background(colors.cardBackground)
-            .cornerRadius(4)
+            .padding(.horizontal, Design.Spacing.sm)
+            .padding(.vertical, 4)
+            .background(
+                ZStack {
+                    // Glassmorphism: frosted glass
+                    RoundedRectangle(cornerRadius: Design.CornerRadius.xs)
+                        .fill(Design.Glass.background(colorScheme))
+                    // Light reflection
+                    RoundedRectangle(cornerRadius: Design.CornerRadius.xs)
+                        .fill(Design.Glass.reflectionGradient(colorScheme))
+                }
+            )
+            // Glassmorphism: subtle border
+            .overlay(
+                RoundedRectangle(cornerRadius: Design.CornerRadius.xs)
+                    .stroke(Design.Glass.border(colorScheme), lineWidth: 1)
+            )
+            // Z-depth shadow
+            .shadow(
+                color: Design.Glass.shadowColor(colorScheme),
+                radius: 2,
+                x: 0,
+                y: 1
+            )
     }
 }
 
@@ -357,7 +501,7 @@ struct ScrollKeyGuide: View {
     let colors: SettingsColors
 
     var body: some View {
-        HStack(spacing: 20) {
+        HStack(spacing: Design.Spacing.xl) {
             KeyGuideItem(key: "H", arrow: "\u{2190}", colors: colors)
             KeyGuideItem(key: "J", arrow: "\u{2193}", colors: colors)
             KeyGuideItem(key: "K", arrow: "\u{2191}", colors: colors)
@@ -372,6 +516,7 @@ struct KeyGuideItem: View {
     let key: String
     let arrow: String
     let colors: SettingsColors
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         VStack(spacing: 2) {
@@ -379,12 +524,32 @@ struct KeyGuideItem: View {
                 .font(.system(size: 13, weight: .bold, design: .monospaced))
                 .foregroundColor(colors.text)
             Text(arrow)
-                .font(.system(size: 10))
+                .font(Design.Font.small)
                 .foregroundColor(colors.secondaryText)
         }
         .frame(width: 32, height: 36)
-        .background(colors.cardBackground)
-        .cornerRadius(6)
+        .background(
+            ZStack {
+                // Glassmorphism: frosted glass
+                RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                    .fill(Design.Glass.background(colorScheme))
+                // Light reflection
+                RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                    .fill(Design.Glass.reflectionGradient(colorScheme))
+            }
+        )
+        // Glassmorphism: subtle border
+        .overlay(
+            RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                .stroke(Design.Glass.border(colorScheme), lineWidth: 1)
+        )
+        // Z-depth shadow
+        .shadow(
+            color: Design.Glass.shadowColor(colorScheme),
+            radius: 2,
+            x: 0,
+            y: 1
+        )
     }
 }
 
@@ -392,7 +557,9 @@ struct KeyGuideItem: View {
 
 struct HotkeyRecorderView: View {
     let colors: SettingsColors
+    @Environment(\.colorScheme) private var colorScheme
     @State private var isRecording = false
+    @State private var isHovering = false
     @State private var currentKeyCode: UInt16 = Preferences.shared.hotkeyKeyCode
     @State private var currentModifiers: UInt = Preferences.shared.hotkeyModifiers
     @State private var eventMonitor: Any?
@@ -401,27 +568,50 @@ struct HotkeyRecorderView: View {
         Button(action: {
             startRecording()
         }) {
-            HStack(spacing: 4) {
+            HStack(spacing: Design.Spacing.xs) {
                 if isRecording {
                     Text("Press keys...")
-                        .font(.system(size: 13, weight: .medium))
+                        .font(Design.Font.body)
                         .foregroundColor(colors.secondaryText)
                 } else {
                     Text(hotkeyDisplayString)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(Design.Font.body)
                         .foregroundColor(colors.text)
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isRecording ? Color.accentColor.opacity(0.3) : colors.cardBackground)
-            .cornerRadius(6)
+            .padding(.horizontal, Design.Spacing.lg)
+            .padding(.vertical, Design.Spacing.sm)
+            .background(
+                ZStack {
+                    // Glassmorphism: frosted glass
+                    RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                        .fill(glassBackground)
+                    // Light reflection
+                    if !isRecording {
+                        RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                            .fill(Design.Glass.reflectionGradient(colorScheme))
+                    }
+                }
+            )
+            // Glassmorphism: subtle border
             .overlay(
-                RoundedRectangle(cornerRadius: 6)
-                    .stroke(isRecording ? Color.accentColor : Color.clear, lineWidth: 2)
+                RoundedRectangle(cornerRadius: Design.CornerRadius.sm)
+                    .stroke(borderColor, lineWidth: isRecording ? 2 : 1)
+            )
+            // Z-depth shadow
+            .shadow(
+                color: isRecording
+                    ? Design.Colors.accent.opacity(0.3)
+                    : Design.Glass.shadowColor(colorScheme),
+                radius: isRecording ? 6 : 3,
+                x: 0,
+                y: isRecording ? 2 : 1
             )
         }
         .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
+        .animation(Design.Animation.quick, value: isHovering)
+        .animation(Design.Animation.quick, value: isRecording)
         .onReceive(NotificationCenter.default.publisher(for: Preferences.hotkeyDidChangeNotification)) { _ in
             currentKeyCode = Preferences.shared.hotkeyKeyCode
             currentModifiers = Preferences.shared.hotkeyModifiers
@@ -429,6 +619,25 @@ struct HotkeyRecorderView: View {
         .onDisappear {
             stopRecording()
         }
+    }
+
+    private var glassBackground: Color {
+        if isRecording {
+            return Design.Colors.accent.opacity(0.25)
+        }
+        return Design.Glass.background(colorScheme, isHovering: isHovering)
+    }
+
+    private var borderColor: Color {
+        if isRecording {
+            return Design.Colors.accent
+        }
+        if isHovering {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderActive)
+                : Design.Colors.accent.opacity(0.4)
+        }
+        return Design.Glass.border(colorScheme)
     }
 
     private func startRecording() {
@@ -592,7 +801,7 @@ struct AppearanceSettingsView: View {
         ScrollView {
             VStack(spacing: 0) {
                 SettingsRow("Appearance", colors: colors) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Design.Spacing.md) {
                         AppearanceOption(
                             icon: "sun.max",
                             label: "Light",
@@ -623,7 +832,7 @@ struct AppearanceSettingsView: View {
                 }
 
                 SettingsRow("Label Theme", colors: colors) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Design.Spacing.md) {
                         ThemeOption(
                             icon: "sun.max",
                             label: "Light",
@@ -689,7 +898,7 @@ struct AppearanceSettingsView: View {
                 }
 
                 SettingsRow("Label Size", colors: colors) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: Design.Spacing.md) {
                         SizeOption(
                             label: "S",
                             isSelected: labelSize == "small",
@@ -727,8 +936,8 @@ struct AppearanceSettingsView: View {
                     )
                 }
             }
-            .padding(.top, 16)
-            .padding(.bottom, 16)
+            .padding(.top, Design.Spacing.lg)
+            .padding(.bottom, Design.Spacing.lg)
         }
     }
 }
@@ -739,36 +948,72 @@ struct AppearanceOption: View {
     let isSelected: Bool
     let colors: SettingsColors
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: Design.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 18))
-                    .foregroundColor(isSelected ? .white : colors.secondaryText)
+                    .foregroundColor(isSelected ? .white : (isHovering ? colors.text : colors.secondaryText))
                     .frame(width: 44, height: 44)
                     .background(
-                        Group {
-                            if isSelected {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.regularMaterial)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.accentColor.opacity(0.6))
-                                    )
-                            } else {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(colors.cardBackground)
+                        ZStack {
+                            // Glassmorphism: frosted glass background
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .fill(optionBackground)
+                            // Light reflection
+                            if !isSelected {
+                                RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                    .fill(Design.Glass.reflectionGradient(colorScheme))
                             }
                         }
                     )
+                    // Glassmorphism: subtle border
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                            .stroke(optionBorder, lineWidth: 1)
+                    )
+                    // Z-depth shadow
+                    .shadow(
+                        color: isSelected
+                            ? Design.Colors.accent.opacity(0.35)
+                            : Design.Glass.shadowColor(colorScheme),
+                        radius: isSelected ? 5 : 3,
+                        x: 0,
+                        y: isSelected ? 2 : 1
+                    )
 
                 Text(label)
-                    .font(.system(size: 11))
+                    .font(Design.Font.caption)
                     .foregroundColor(isSelected ? colors.text : colors.secondaryText)
             }
         }
         .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
+        .animation(Design.Animation.quick, value: isHovering)
+    }
+
+    private var optionBackground: Color {
+        if isSelected {
+            return Design.Colors.accent
+        }
+        return Design.Glass.background(colorScheme, isHovering: isHovering)
+    }
+
+    private var optionBorder: Color {
+        if isSelected {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderActive)
+                : Design.Colors.accent.opacity(Design.Glass.Light.borderActive)
+        }
+        if isHovering {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderHover)
+                : Design.Colors.accent.opacity(0.4)
+        }
+        return Design.Glass.border(colorScheme)
     }
 }
 
@@ -778,36 +1023,72 @@ struct ThemeOption: View {
     let isSelected: Bool
     let colors: SettingsColors
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
-            VStack(spacing: 4) {
+            VStack(spacing: Design.Spacing.xs) {
                 Image(systemName: icon)
                     .font(.system(size: 18))
-                    .foregroundColor(isSelected ? .white : colors.secondaryText)
+                    .foregroundColor(isSelected ? .white : (isHovering ? colors.text : colors.secondaryText))
                     .frame(width: 44, height: 44)
                     .background(
-                        Group {
-                            if isSelected {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(.regularMaterial)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 8)
-                                            .fill(Color.accentColor.opacity(0.6))
-                                    )
-                            } else {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(colors.cardBackground)
+                        ZStack {
+                            // Glassmorphism: frosted glass background
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .fill(optionBackground)
+                            // Light reflection
+                            if !isSelected {
+                                RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                    .fill(Design.Glass.reflectionGradient(colorScheme))
                             }
                         }
                     )
+                    // Glassmorphism: subtle border
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                            .stroke(optionBorder, lineWidth: 1)
+                    )
+                    // Z-depth shadow
+                    .shadow(
+                        color: isSelected
+                            ? Design.Colors.accent.opacity(0.35)
+                            : Design.Glass.shadowColor(colorScheme),
+                        radius: isSelected ? 5 : 3,
+                        x: 0,
+                        y: isSelected ? 2 : 1
+                    )
 
                 Text(label)
-                    .font(.system(size: 11))
+                    .font(Design.Font.caption)
                     .foregroundColor(isSelected ? colors.text : colors.secondaryText)
             }
         }
         .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
+        .animation(Design.Animation.quick, value: isHovering)
+    }
+
+    private var optionBackground: Color {
+        if isSelected {
+            return Design.Colors.accent
+        }
+        return Design.Glass.background(colorScheme, isHovering: isHovering)
+    }
+
+    private var optionBorder: Color {
+        if isSelected {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderActive)
+                : Design.Colors.accent.opacity(Design.Glass.Light.borderActive)
+        }
+        if isHovering {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderHover)
+                : Design.Colors.accent.opacity(0.4)
+        }
+        return Design.Glass.border(colorScheme)
     }
 }
 
@@ -816,30 +1097,66 @@ struct SizeOption: View {
     let isSelected: Bool
     let colors: SettingsColors
     let action: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
             Text(label)
                 .font(.system(size: 14, weight: .bold))
-                .foregroundColor(isSelected ? .white : colors.secondaryText)
+                .foregroundColor(isSelected ? .white : (isHovering ? colors.text : colors.secondaryText))
                 .frame(width: 36, height: 36)
                 .background(
-                    Group {
-                        if isSelected {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(.regularMaterial)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(Color.accentColor.opacity(0.6))
-                                )
-                        } else {
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(colors.cardBackground)
+                    ZStack {
+                        // Glassmorphism: frosted glass background
+                        RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                            .fill(optionBackground)
+                        // Light reflection
+                        if !isSelected {
+                            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                                .fill(Design.Glass.reflectionGradient(colorScheme))
                         }
                     }
                 )
+                // Glassmorphism: subtle border
+                .overlay(
+                    RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                        .stroke(optionBorder, lineWidth: 1)
+                )
+                // Z-depth shadow
+                .shadow(
+                    color: isSelected
+                        ? Design.Colors.accent.opacity(0.35)
+                        : Design.Glass.shadowColor(colorScheme),
+                    radius: isSelected ? 5 : 3,
+                    x: 0,
+                    y: isSelected ? 2 : 1
+                )
         }
         .buttonStyle(.plain)
+        .onHover { hovering in isHovering = hovering }
+        .animation(Design.Animation.quick, value: isHovering)
+    }
+
+    private var optionBackground: Color {
+        if isSelected {
+            return Design.Colors.accent
+        }
+        return Design.Glass.background(colorScheme, isHovering: isHovering)
+    }
+
+    private var optionBorder: Color {
+        if isSelected {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderActive)
+                : Design.Colors.accent.opacity(Design.Glass.Light.borderActive)
+        }
+        if isHovering {
+            return colorScheme == .dark
+                ? Color.white.opacity(Design.Glass.Dark.borderHover)
+                : Design.Colors.accent.opacity(0.4)
+        }
+        return Design.Glass.border(colorScheme)
     }
 }
 
@@ -847,6 +1164,7 @@ struct LabelPreview: View {
     let theme: String
     let size: String
     let colors: SettingsColors
+    @Environment(\.colorScheme) private var colorScheme
     var customBackground: Color = .init(white: 0.2)
     var customText: Color = .white
     var customBorder: Color = .init(white: 0.4)
@@ -877,34 +1195,72 @@ struct LabelPreview: View {
         }
     }
 
+    // Match LabelSize values from LabelLayer.swift
     var fontSize: CGFloat {
         switch size {
-        case "small": return 10
-        case "large": return 16
-        default: return 13
+        case "small": return 8
+        case "large": return 12
+        default: return 10
         }
     }
 
+    var xPadding: CGFloat {
+        switch size {
+        case "small": return 2
+        case "large": return 5
+        default: return 4
+        }
+    }
+
+    var yPadding: CGFloat {
+        switch size {
+        case "small": return 1
+        case "large": return 3
+        default: return 2
+        }
+    }
+
+    // Match LabelLayer cornerRadius = 3
+    private let labelCornerRadius: CGFloat = 3
+
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: Design.Spacing.sm) {
             ForEach(["A", "S", "D", "F"], id: \.self) { label in
                 Text(label)
                     .font(.system(size: fontSize, weight: .bold, design: .monospaced))
                     .foregroundColor(textColor)
-                    .padding(.horizontal, size == "small" ? 4 : (size == "large" ? 10 : 8))
-                    .padding(.vertical, size == "small" ? 2 : (size == "large" ? 6 : 4))
-                    .background(backgroundColor)
-                    .cornerRadius(4)
+                    .padding(.horizontal, xPadding)
+                    .padding(.vertical, yPadding)
+                    .background(backgroundColor.opacity(0.95))
+                    .cornerRadius(labelCornerRadius)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: labelCornerRadius)
                             .stroke(borderColor, lineWidth: 1)
+                    )
+                    // Match LabelLayer shadow
+                    .shadow(
+                        color: Color.black.opacity(0.4),
+                        radius: 2,
+                        x: 0,
+                        y: -1
                     )
             }
         }
-        .padding(12)
+        .padding(Design.Spacing.md)
         .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(colors.cardBackground)
+            ZStack {
+                // Glassmorphism: frosted glass container
+                RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                    .fill(Design.Glass.background(colorScheme))
+                // Light reflection
+                RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                    .fill(Design.Glass.reflectionGradient(colorScheme))
+            }
+        )
+        // Glassmorphism: subtle border
+        .overlay(
+            RoundedRectangle(cornerRadius: Design.CornerRadius.md)
+                .stroke(Design.Glass.border(colorScheme), lineWidth: 1)
         )
     }
 }
@@ -914,99 +1270,87 @@ struct LabelPreview: View {
 struct AboutView: View {
     let colors: SettingsColors
     @State private var showingWhatsNew = false
+    @Environment(\.colorScheme) private var colorScheme
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
     }
 
     var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 0) {
             Spacer()
 
+            // App Icon
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 80, height: 80)
+                .frame(width: 72, height: 72)
+                .padding(.bottom, Design.Spacing.lg)
 
-            VStack(spacing: 4) {
+            // App Name & Version
+            VStack(spacing: Design.Spacing.xs) {
                 Text("Hinto")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: 22, weight: .bold))
                     .foregroundColor(colors.text)
 
                 Text("Version \(appVersion)")
-                    .font(.system(size: 12))
+                    .font(Design.Font.button)
                     .foregroundColor(colors.secondaryText)
             }
+            .padding(.bottom, Design.Spacing.md)
 
+            // Description
             Text("Navigate your Mac without a mouse\nusing keyboard-driven labels.")
-                .font(.system(size: 13))
+                .font(Design.Font.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(colors.secondaryText)
                 .lineSpacing(4)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 
-            // What's New & Check for Updates
-            HStack(spacing: 12) {
-                Button(action: { showingWhatsNew = true }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "doc.text")
-                        Text("What's New")
+            // Action Buttons
+            VStack(spacing: Design.Spacing.md) {
+                // What's New & Check for Updates
+                HStack(spacing: Design.Spacing.md) {
+                    Button(action: { showingWhatsNew = true }) {
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "doc.text")
+                            Text("What's New")
+                        }
                     }
-                    .font(.system(size: 12))
-                    .foregroundColor(colors.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(colors.cardBackground)
-                    .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(.hintoCard)
 
-                Button(action: checkForUpdates) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                        Text("Check for Updates")
+                    Button(action: checkForUpdates) {
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                            Text("Check for Updates")
+                        }
                     }
-                    .font(.system(size: 12))
-                    .foregroundColor(colors.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(colors.cardBackground)
-                    .cornerRadius(6)
-                }
-                .buttonStyle(.plain)
-            }
-
-            // GitHub & Donate links
-            HStack(spacing: 12) {
-                Link(destination: URL(string: "https://github.com/yhao3/hinto")!) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "star")
-                        Text("Star on GitHub")
-                    }
-                    .font(.system(size: 12))
-                    .foregroundColor(colors.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(colors.cardBackground)
-                    .cornerRadius(6)
+                    .buttonStyle(.hintoCard)
                 }
 
-                Link(destination: URL(string: "https://ko-fi.com/yhao3")!) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "heart")
-                        Text("Donate")
+                // GitHub & Donate links
+                HStack(spacing: Design.Spacing.md) {
+                    Link(destination: URL(string: "https://github.com/yhao3/hinto")!) {
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "star")
+                            Text("Star on GitHub")
+                        }
                     }
-                    .font(.system(size: 12))
-                    .foregroundColor(colors.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(colors.cardBackground)
-                    .cornerRadius(6)
+                    .buttonStyle(.hintoCard)
+
+                    Link(destination: URL(string: "https://ko-fi.com/yhao3")!) {
+                        HStack(spacing: Design.Spacing.sm) {
+                            Image(systemName: "heart")
+                            Text("Donate")
+                        }
+                    }
+                    .buttonStyle(.hintoCard)
                 }
             }
-            .padding(.bottom, 20)
+            .padding(.bottom, Design.Spacing.huge)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .sheet(isPresented: $showingWhatsNew) {
