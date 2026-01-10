@@ -69,6 +69,38 @@ jobs:
             OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
             build
 
+      - name: Re-sign Sparkle framework
+        run: |
+          APP_PATH="$BUILD_PATH/$APP_NAME.app"
+          SPARKLE_PATH="$APP_PATH/Contents/Frameworks/Sparkle.framework"
+
+          # Sign Sparkle components (inner to outer)
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            "$SPARKLE_PATH/Versions/B/XPCServices/Downloader.xpc"
+
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            "$SPARKLE_PATH/Versions/B/XPCServices/Installer.xpc"
+
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            "$SPARKLE_PATH/Versions/B/Autoupdate"
+
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            "$SPARKLE_PATH/Versions/B/Updater.app"
+
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            "$SPARKLE_PATH"
+
+          # Re-sign the main app
+          codesign --force --options runtime --timestamp \
+            --sign "Developer ID Application" \
+            --entitlements Resources/Hinto.entitlements \
+            "$APP_PATH"
+
       - name: Notarize
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
