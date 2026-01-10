@@ -1,0 +1,233 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  APP_NAME: Hinto
+  SCHEME: Hinto
+  BUILD_PATH: build/Build/Products/Release
+  MACOS_MIN_VERSION: "13.0"  # Keep in sync with Config/base.xcconfig
+
+jobs:
+  release:
+    runs-on: macos-latest
+    environment: production
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          # Convert semantic version to integer build number (e.g., 1.2.3 -> 10203)
+          BUILD_NUMBER=$(echo "$VERSION" | awk -F. '{ printf "%d%02d%02d", $1, $2, $3 }')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "build_number=$BUILD_NUMBER" >> $GITHUB_OUTPUT
+          echo "Releasing version: $VERSION (build $BUILD_NUMBER)"
+
+      - name: Install certificate
+        env:
+          APPLE_CERTIFICATE_P12: ${{ secrets.APPLE_CERTIFICATE_P12 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          KEYCHAIN_PASSWORD=password
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          echo "$APPLE_CERTIFICATE_P12" | base64 --decode > $RUNNER_TEMP/certificate.p12
+          security import $RUNNER_TEMP/certificate.p12 \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -T /usr/bin/codesign \
+            -k "$KEYCHAIN_PATH"
+
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+      - name: Build
+        env:
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild \
+            -scheme $SCHEME \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="Developer ID Application" \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO \
+            OTHER_CODE_SIGN_FLAGS="--timestamp --options runtime" \
+            build
+
+      - name: Notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd "$BUILD_PATH"
+          ditto -c -k --keepParent "$APP_NAME.app" "$APP_NAME.zip"
+
+          xcrun notarytool submit "$APP_NAME.zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$APP_NAME.app"
+
+      - name: Create DMG
+        run: |
+          git clone https://github.com/create-dmg/create-dmg.git
+
+          ./create-dmg/create-dmg \
+            --volname "$APP_NAME" \
+            --window-pos 200 120 \
+            --window-size 500 320 \
+            --icon-size 80 \
+            --icon "$APP_NAME.app" 125 175 \
+            --hide-extension "$APP_NAME.app" \
+            --app-drop-link 375 175 \
+            --no-internet-enable \
+            "$APP_NAME.dmg" \
+            "$BUILD_PATH/$APP_NAME.app"
+
+      - name: Sign DMG for Sparkle
+        id: sparkle_sign
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          # Download Sparkle tools
+          SPARKLE_VERSION="2.6.4"
+          curl -L -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir -p /tmp/sparkle
+          tar -xf /tmp/Sparkle.tar.xz -C /tmp/sparkle
+
+          # Sign the DMG with EdDSA key
+          SIGNATURE=$(/tmp/sparkle/bin/sign_update "$APP_NAME.dmg" --ed-key-file <(echo "$SPARKLE_PRIVATE_KEY"))
+          echo "signature=$SIGNATURE" >> $GITHUB_OUTPUT
+          echo "Sparkle signature: $SIGNATURE"
+
+          # Get DMG size
+          DMG_SIZE=$(stat -f%z "$APP_NAME.dmg")
+          echo "dmg_size=$DMG_SIZE" >> $GITHUB_OUTPUT
+
+      - name: Extract release notes from CHANGELOG
+        id: changelog
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Extract content between current version and next version header (or EOF)
+          NOTES=$(awk "/^## \\[$VERSION\\]/{flag=1; next} /^## \\[/{flag=0} flag" Resources/CHANGELOG.md | sed '/^$/d')
+
+          # Handle multiline output
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APP_NAME }}.dmg
+          body: |
+            ${{ steps.changelog.outputs.notes }}
+
+            ---
+            **Installation:** Download `Hinto.dmg`, open it, and drag Hinto to your Applications folder.
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate new appcast item
+        id: appcast
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          BUILD_NUMBER=${{ steps.version.outputs.build_number }}
+          SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
+          DMG_SIZE=${{ steps.sparkle_sign.outputs.dmg_size }}
+          PUB_DATE=$(date -R)
+
+          # Generate only the new item (will be merged with existing items)
+          cat > /tmp/new_item.xml << EOF
+              <item>
+                <title>Version $VERSION</title>
+                <pubDate>$PUB_DATE</pubDate>
+                <sparkle:version>$BUILD_NUMBER</sparkle:version>
+                <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+                <sparkle:minimumSystemVersion>${MACOS_MIN_VERSION}</sparkle:minimumSystemVersion>
+                <enclosure
+                  url="https://github.com/yhao3/hinto/releases/download/v$VERSION/Hinto.dmg"
+                  length="$DMG_SIZE"
+                  type="application/octet-stream"
+                  sparkle:edSignature="$SIGNATURE"
+                />
+              </item>
+          EOF
+
+          echo "New item generated:"
+          cat /tmp/new_item.xml
+
+      - name: Deploy appcast.xml to GitHub Pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Fetch gh-pages or create it
+          git fetch origin gh-pages:gh-pages 2>/dev/null || true
+          git checkout gh-pages || git checkout --orphan gh-pages
+
+          # Extract existing items (if any)
+          if [ -f appcast.xml ]; then
+            # Extract all existing <item>...</item> blocks
+            sed -n '/<item>/,/<\/item>/p' appcast.xml > /tmp/existing_items.xml || true
+          else
+            touch /tmp/existing_items.xml
+          fi
+
+          # Build new appcast.xml with new item first, then existing items
+          cat > appcast.xml << 'HEADER'
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+            <channel>
+              <title>Hinto Updates</title>
+              <link>https://yhao3.github.io/hinto/appcast.xml</link>
+              <description>Most recent updates to Hinto</description>
+              <language>en</language>
+          HEADER
+
+          # Append new item first
+          cat /tmp/new_item.xml >> appcast.xml
+
+          # Append existing items (history)
+          cat /tmp/existing_items.xml >> appcast.xml
+
+          # Close the XML
+          cat >> appcast.xml << 'FOOTER'
+            </channel>
+          </rss>
+          FOOTER
+
+          echo "Final appcast.xml:"
+          cat appcast.xml
+
+          # Commit and push
+          git add appcast.xml
+          git commit -m "Update appcast.xml for v${{ steps.version.outputs.version }}" || echo "No changes to commit"
+          git push origin gh-pages
+
+      - name: Cleanup
+        if: always()
+        run: |
+          security delete-keychain $RUNNER_TEMP/app-signing.keychain-db || true
+          rm -f $RUNNER_TEMP/certificate.p12

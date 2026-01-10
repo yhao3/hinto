@@ -3,7 +3,7 @@
 APP_NAME = Hinto
 SCHEME = Hinto
 BUILD_DIR = build
-APP_PATH = $(BUILD_DIR)/Build/Products/Release/$(APP_NAME).app
+APP_PATH = $(BUILD_DIR)/Build/Products/Debug/$(APP_NAME).app
 DMG_PATH = $(APP_NAME).dmg
 APPLE_TEAM_ID = JQ43BAV5D8
 
@@ -14,7 +14,7 @@ setup:
 
 build:
 	@echo "Building $(APP_NAME)..."
-	@xcodebuild -scheme $(SCHEME) -configuration Release -derivedDataPath $(BUILD_DIR) build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)" || true
+	@xcodebuild -scheme $(SCHEME) -configuration Debug -derivedDataPath $(BUILD_DIR) build 2>&1 | grep -E "(error:|warning:|BUILD SUCCEEDED|BUILD FAILED)" || true
 
 run: kill build
 	@echo "Opening $(APP_NAME)..."
