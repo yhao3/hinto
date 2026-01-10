@@ -5,6 +5,18 @@
     <link>https://yhao3.github.io/hinto/appcast.xml</link>
     <description>Most recent updates to Hinto</description>
     <language>en</language>
-    <!-- Items will be added by GitHub Actions on release -->
+    <item>
+      <title>Version 0.2.0</title>
+      <pubDate>Sat, 10 Jan 2026 18:32:31 +0000</pubDate>
+      <sparkle:version>200</sparkle:version>
+      <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/yhao3/hinto/releases/download/v0.2.0/Hinto.dmg"
+        length="2053392"
+        type="application/octet-stream"
+        sparkle:edSignature="sparkle:edSignature="opuWRRMHxk8A4wHyXEmnbNMg4Y/qPUNggnUUoZn2JAYxfMFHt1lt3X+ACSl/XJwsjiO2Ywv9A3UmX6g/M2BhAQ==" length="2053392""
+      />
+    </item>
   </channel>
 </rss>
