@@ -42,6 +42,8 @@
 		B10000010000000000000038 /* WhatsNewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000038 /* WhatsNewView.swift */; };
 		B10000010000000000000039 /* CHANGELOG.md in Resources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000039 /* CHANGELOG.md */; };
 		B10000010000000000000040 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = B1000000C000000000000001 /* Sparkle */; };
+		B10000010000000000000041 /* CardButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000041 /* CardButtonStyle.swift */; };
+		B10000010000000000000042 /* DesignConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10000020000000000000042 /* DesignConstants.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -85,6 +87,8 @@
 		B10000020000000000000038 /* WhatsNewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhatsNewView.swift; sourceTree = "<group>"; };
 		B10000020000000000000039 /* CHANGELOG.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = CHANGELOG.md; sourceTree = "<group>"; };
 		B10000030000000000000001 /* Hinto.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Hinto.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000020000000000000041 /* CardButtonStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardButtonStyle.swift; sourceTree = "<group>"; };
+		B10000020000000000000042 /* DesignConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignConstants.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -138,6 +142,7 @@
 		B10000050000000000000004 /* UI */ = {
 			isa = PBXGroup;
 			children = (
+				B10000050000000000000019 /* Components */,
 				B10000050000000000000012 /* Overlay */,
 				B10000050000000000000013 /* SearchBar */,
 				B10000050000000000000014 /* Settings */,
@@ -281,6 +286,15 @@
 			path = WhatsNew;
 			sourceTree = "<group>";
 		};
+		B10000050000000000000019 /* Components */ = {
+			isa = PBXGroup;
+			children = (
+				B10000020000000000000041 /* CardButtonStyle.swift */,
+				B10000020000000000000042 /* DesignConstants.swift */,
+			);
+			path = Components;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -389,6 +403,8 @@
 				B10000010000000000000036 /* ScannerDecoratorRegistry.swift in Sources */,
 				B10000010000000000000037 /* ChangelogParser.swift in Sources */,
 				B10000010000000000000038 /* WhatsNewView.swift in Sources */,
+				B10000010000000000000041 /* CardButtonStyle.swift in Sources */,
+				B10000010000000000000042 /* DesignConstants.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

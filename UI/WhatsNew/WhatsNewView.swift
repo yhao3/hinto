@@ -12,31 +12,31 @@ struct WhatsNewView: View {
         VStack(spacing: 0) {
             // Header
             header
-                .padding(.top, 28)
-                .padding(.bottom, 20)
+                .padding(.top, Design.Spacing.xxxl)
+                .padding(.bottom, Design.Spacing.xl)
 
             // Content
             ScrollView {
                 Text(.init(entry.content))
-                    .font(.system(size: 13, weight: .regular))
+                    .font(Design.Font.body)
                     .lineSpacing(4)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 28)
-                    .padding(.vertical, 20)
+                    .padding(.horizontal, Design.Spacing.xxxl)
+                    .padding(.vertical, Design.Spacing.xl)
             }
             .frame(maxHeight: .infinity)
 
             // Footer
             footer
-                .padding(.top, 16)
-                .padding(.bottom, 24)
+                .padding(.top, Design.Spacing.lg)
+                .padding(.bottom, Design.Spacing.huge)
         }
-        .frame(width: 400, height: 460)
+        .frame(width: 480, height: 500)
         .background {
             ZStack {
                 // Base material (same as Settings)
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: Design.CornerRadius.xl)
                     .fill(.thickMaterial)
 
                 // Subtle gradient overlay
@@ -48,28 +48,28 @@ struct WhatsNewView: View {
                 .opacity(0.15)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: Design.CornerRadius.xl))
     }
 
     private var gradientColors: [Color] {
         colorScheme == .dark
-            ? [Color(red: 0.2, green: 0.35, blue: 0.45), Color(red: 0.15, green: 0.25, blue: 0.35)]
-            : [Color(red: 0.5, green: 0.7, blue: 0.85), Color(red: 0.6, green: 0.75, blue: 0.8)]
+            ? [Design.Colors.accent.opacity(0.3), Design.Colors.accent.opacity(0.15)]
+            : [Design.Colors.accent.opacity(0.2), Design.Colors.accent.opacity(0.1)]
     }
 
     private var header: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: Design.Spacing.md) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 56, height: 56)
+                .frame(width: Design.IconSize.lg, height: Design.IconSize.lg)
 
             Text("What's New")
-                .font(.system(size: 17, weight: .semibold))
+                .font(Design.Font.title)
 
             Text("Version \(entry.version)")
-                .font(.system(size: 12, weight: .medium))
+                .font(Design.Font.button)
                 .foregroundColor(.secondary)
         }
     }
@@ -83,10 +83,8 @@ struct WhatsNewView: View {
             onDismiss()
         }) {
             Text(isPostUpdate ? "Continue" : "Close")
-                .frame(minWidth: 100)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(.hintoCard)
     }
 }
 
@@ -111,7 +109,7 @@ final class WhatsNewWindowController: NSWindowController {
         window.isMovableByWindowBackground = true
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.setContentSize(NSSize(width: 400, height: 460))
+        window.setContentSize(NSSize(width: 480, height: 500))
         window.center()
 
         self.init(window: window)
