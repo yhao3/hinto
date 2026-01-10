@@ -160,6 +160,17 @@ jobs:
           APPCAST_URL: https://yhao3.github.io/hinto/appcast.xml
         run: ./Scripts/ci/deploy-appcast.sh
 
+      - name: Update website version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          HINTO_SITE_PAT: ${{ secrets.HINTO_SITE_PAT }}
+        run: |
+          curl -X POST \
+            -H "Authorization: token $HINTO_SITE_PAT" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/yhao3/hinto-site/dispatches \
+            -d "{\"event_type\":\"release\",\"client_payload\":{\"version\":\"$VERSION\"}}"
+
       - name: Cleanup
         if: always()
         run: |
