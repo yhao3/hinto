@@ -149,82 +149,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate new appcast item
-        id: appcast
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          BUILD_NUMBER=${{ steps.version.outputs.build_number }}
-          SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
-          DMG_SIZE=${{ steps.sparkle_sign.outputs.dmg_size }}
-          PUB_DATE=$(date -R)
-
-          # Generate only the new item (will be merged with existing items)
-          cat > /tmp/new_item.xml << EOF
-              <item>
-                <title>Version $VERSION</title>
-                <pubDate>$PUB_DATE</pubDate>
-                <sparkle:version>$BUILD_NUMBER</sparkle:version>
-                <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
-                <sparkle:minimumSystemVersion>${MACOS_MIN_VERSION}</sparkle:minimumSystemVersion>
-                <enclosure
-                  url="https://github.com/yhao3/hinto/releases/download/v$VERSION/Hinto.dmg"
-                  length="$DMG_SIZE"
-                  type="application/octet-stream"
-                  sparkle:edSignature="$SIGNATURE"
-                />
-              </item>
-          EOF
-
-          echo "New item generated:"
-          cat /tmp/new_item.xml
-
       - name: Deploy appcast.xml to GitHub Pages
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Fetch gh-pages or create it
-          git fetch origin gh-pages:gh-pages 2>/dev/null || true
-          git checkout gh-pages || git checkout --orphan gh-pages
-
-          # Extract existing items (if any)
-          if [ -f appcast.xml ]; then
-            # Extract all existing <item>...</item> blocks
-            sed -n '/<item>/,/<\/item>/p' appcast.xml > /tmp/existing_items.xml || true
-          else
-            touch /tmp/existing_items.xml
-          fi
-
-          # Build new appcast.xml with new item first, then existing items
-          cat > appcast.xml << 'HEADER'
-          <?xml version="1.0" encoding="utf-8"?>
-          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-            <channel>
-              <title>Hinto Updates</title>
-              <link>https://yhao3.github.io/hinto/appcast.xml</link>
-              <description>Most recent updates to Hinto</description>
-              <language>en</language>
-          HEADER
-
-          # Append new item first
-          cat /tmp/new_item.xml >> appcast.xml
-
-          # Append existing items (history)
-          cat /tmp/existing_items.xml >> appcast.xml
-
-          # Close the XML
-          cat >> appcast.xml << 'FOOTER'
-            </channel>
-          </rss>
-          FOOTER
-
-          echo "Final appcast.xml:"
-          cat appcast.xml
-
-          # Commit and push
-          git add appcast.xml
-          git commit -m "Update appcast.xml for v${{ steps.version.outputs.version }}" || echo "No changes to commit"
-          git push origin gh-pages
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BUILD_NUMBER: ${{ steps.version.outputs.build_number }}
+          SIGNATURE: ${{ steps.sparkle_sign.outputs.signature }}
+          DMG_SIZE: ${{ steps.sparkle_sign.outputs.dmg_size }}
+          MACOS_MIN_VERSION: ${{ env.MACOS_MIN_VERSION }}
+          REPO_URL: https://github.com/yhao3/hinto
+          APPCAST_URL: https://yhao3.github.io/hinto/appcast.xml
+        run: ./Scripts/ci/deploy-appcast.sh
 
       - name: Cleanup
         if: always()
