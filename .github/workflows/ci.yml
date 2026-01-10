@@ -29,6 +29,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check macOS version consistency
+        run: ./Scripts/ci/check-macos-version.sh
+
       - name: Install SwiftFormat
         run: brew install swiftformat
 
