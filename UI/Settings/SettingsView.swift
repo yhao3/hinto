@@ -913,6 +913,7 @@ struct LabelPreview: View {
 
 struct AboutView: View {
     let colors: SettingsColors
+    @State private var showingWhatsNew = false
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
@@ -922,8 +923,9 @@ struct AboutView: View {
         VStack(spacing: 16) {
             Spacer()
 
-            Image("AboutIcon")
+            Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
+                .interpolation(.high)
                 .aspectRatio(contentMode: .fit)
                 .frame(width: 80, height: 80)
 
@@ -945,6 +947,38 @@ struct AboutView: View {
 
             Spacer()
 
+            // What's New & Check for Updates
+            HStack(spacing: 12) {
+                Button(action: { showingWhatsNew = true }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "doc.text")
+                        Text("What's New")
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(colors.text)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(colors.cardBackground)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: checkForUpdates) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                        Text("Check for Updates")
+                    }
+                    .font(.system(size: 12))
+                    .foregroundColor(colors.text)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(colors.cardBackground)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+            }
+
+            // GitHub & Donate links
             HStack(spacing: 12) {
                 Link(destination: URL(string: "https://github.com/yhao3/hinto")!) {
                     HStack(spacing: 6) {
@@ -975,6 +1009,17 @@ struct AboutView: View {
             .padding(.bottom, 20)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .sheet(isPresented: $showingWhatsNew) {
+            if let entry = ChangelogParser.shared.currentVersionEntry() {
+                WhatsNewView(entry: entry, isPostUpdate: false) {
+                    showingWhatsNew = false
+                }
+            }
+        }
+    }
+
+    private func checkForUpdates() {
+        (NSApp.delegate as? AppDelegate)?.updater.checkForUpdates()
     }
 }
 

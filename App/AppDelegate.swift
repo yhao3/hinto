@@ -1,5 +1,6 @@
 import Carbon
 import Cocoa
+import Sparkle
 import SwiftUI
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -7,6 +8,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var modeController: ModeController?
     private var eventTapManager: EventTapManager?
     private var settingsWindow: NSWindow?
+    private var whatsNewWindowController: WhatsNewWindowController?
+
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true,
+        updaterDelegate: nil,
+        userDriverDelegate: nil
+    )
 
     func applicationDidFinishLaunching(_: Notification) {
         log("Hinto: Starting up...")
@@ -15,7 +23,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         checkAccessibilityPermission()
         setupEventTap()
         setupModeController()
+        recordFirstLaunchVersion()
         log("Hinto: Ready! Press Cmd+Shift+Space to activate")
+    }
+
+    // MARK: - Sparkle
+
+    var updater: SPUUpdater {
+        updaterController.updater
+    }
+
+    // MARK: - What's New
+
+    private func recordFirstLaunchVersion() {
+        let prefs = Preferences.shared
+        if prefs.isFirstLaunch {
+            log("Hinto: First launch, recording version \(prefs.currentVersion)")
+            prefs.lastSeenVersion = prefs.currentVersion
+        }
+    }
+
+    func showWhatsNewWindow(onDismiss: (() -> Void)? = nil) {
+        guard let entry = ChangelogParser.shared.currentVersionEntry() else {
+            log("Hinto: No changelog entry found for version \(Preferences.shared.currentVersion)")
+            onDismiss?()
+            return
+        }
+
+        log("Hinto: Showing What's New window, entry version: \(entry.version), content length: \(entry.content.count)")
+        NSApp.setActivationPolicy(.regular)
+        whatsNewWindowController = WhatsNewWindowController(entry: entry, onDismiss: onDismiss)
+        whatsNewWindowController?.showWindow(nil)
     }
 
     func applicationWillTerminate(_: Notification) {
@@ -121,6 +159,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // to show windows properly
         NSApp.setActivationPolicy(.regular)
 
+        // Show What's New on first Settings open after update
+        let prefs = Preferences.shared
+        if prefs.isFirstLaunchAfterUpdate {
+            log("Hinto: First Settings open after update, showing What's New")
+            showWhatsNewWindow { [weak self] in
+                self?.showSettingsWindow()
+            }
+            return
+        }
+
+        showSettingsWindow()
+    }
+
+    private func showSettingsWindow() {
         if settingsWindow == nil {
             let settingsView = SettingsView()
             let hostingController = NSHostingController(rootView: settingsView)
