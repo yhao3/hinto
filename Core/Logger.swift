@@ -2,10 +2,15 @@ import Foundation
 import os
 
 /// Unified logger for Hinto using Apple's os.Logger
-/// Optionally writes to /tmp/hinto.log when enabled via hidden setting
+/// Optionally writes to /tmp/hinto.log (or /tmp/hinto-debug.log for debug builds)
 public enum Log {
-    private static let logger = Logger(subsystem: "dev.yhao3.hinto", category: "general")
-    private static let logFile = "/tmp/hinto.log"
+    #if DEBUG
+        private static let logger = Logger(subsystem: "dev.yhao3.hinto.debug", category: "general")
+        private static let logFile = "/tmp/hinto-debug.log"
+    #else
+        private static let logger = Logger(subsystem: "dev.yhao3.hinto", category: "general")
+        private static let logFile = "/tmp/hinto.log"
+    #endif
 
     /// Hidden setting key for file logging (enable via: defaults write dev.yhao3.hinto debug-file-logging -bool true)
     private static let fileLoggingKey = "debug-file-logging"

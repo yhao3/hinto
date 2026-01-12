@@ -91,8 +91,10 @@ Access settings via the menu bar icon:
 ### Check logs
 
 ```bash
-make log
-# or
+# Debug build
+make log  # or: tail -f /tmp/hinto-debug.log
+
+# Release build
 tail -f /tmp/hinto.log
 ```
 
@@ -101,15 +103,16 @@ tail -f /tmp/hinto.log
 Enable hidden debug settings via `defaults`:
 
 ```bash
-# Enable file logging to /tmp/hinto.log
-defaults write dev.yhao3.hinto debug-file-logging -bool true
+# For debug builds (dev.yhao3.hinto.debug)
+defaults write dev.yhao3.hinto.debug debug-file-logging -bool true
+defaults write dev.yhao3.hinto.debug debug-timing -bool true
 
-# Enable scanner timing logs (shows performance of each scanner)
+# For release builds (dev.yhao3.hinto)
+defaults write dev.yhao3.hinto debug-file-logging -bool true
 defaults write dev.yhao3.hinto debug-timing -bool true
 
 # Disable
-defaults write dev.yhao3.hinto debug-file-logging -bool false
-defaults write dev.yhao3.hinto debug-timing -bool false
+defaults write dev.yhao3.hinto.debug debug-file-logging -bool false
 ```
 
 Restart the app after changing settings.

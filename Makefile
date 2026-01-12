@@ -30,7 +30,7 @@ clean:
 	@echo "Done."
 
 log:
-	@tail -f /tmp/hinto.log
+	@tail -f /tmp/hinto-debug.log
 
 test:
 	@echo "Running tests..."
