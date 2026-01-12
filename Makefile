@@ -22,7 +22,7 @@ run: kill build
 	@open $(APP_PATH)
 
 kill:
-	@pkill -9 $(APP_NAME) 2>/dev/null || true
+	@pkill -9 -f "$(APP_PATH)" 2>/dev/null || true
 
 clean:
 	@echo "Cleaning..."

@@ -3,6 +3,9 @@
 
 #include "base.xcconfig"
 
+// Use different bundle ID to allow debug and release to coexist
+PRODUCT_BUNDLE_IDENTIFIER = dev.yhao3.hinto.debug
+
 CODE_SIGN_IDENTITY = Local Self-Signed
 CODE_SIGN_STYLE = Manual
 CODE_SIGN_ENTITLEMENTS = Resources/Hinto-Debug.entitlements
